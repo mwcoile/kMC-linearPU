@@ -10,8 +10,11 @@
 // This code is designed to generate polyurethane sequences
 int main() {
     // inputs //
-    double A_kf = 100; double Ea_kf = 10; // forward reaction 1
-    double V = 1;
+    double A_kf = exp(7.0); double Ea_kf = 40; // kJ/mol forward reaction 1
+    double Na = 6.02E23;
+    // for replicating Krol
+    int num_of_molecules_in_simulation=1E4;
+    double V = num_of_molecules_in_simulation/Na;
     //double A_kba = 100; double Ea_kr = 10; // reverse reaction 1
     // I think I will have to get the number of monomers from an input file, as well as the number of different reactions
     // for 3 monomers there are 3+2+1 different reactions: 6
@@ -21,13 +24,11 @@ int main() {
     // But that would be in presence of a solvent... hmm so the solvent could attack any chain, anywhere (if you ignore the fact that realistically it could only attack at surface...)
     // For solvolysis, could we ignore the polymerization step? If so, I think this should be fairly straightforward. If not, I will need to include a balance between the
     // polymerization and depolymerization steps.
-    double R = 8.314; // ideal gas constant
-    double T = 298; // temperature (K)
-    //double simulation_time = 10; // total simulation time
-    // For the special case with 2 monomers
-    // need to randomly select whether A-B addition or B-A addition occurs.... then need to randomly select the monomer and the side of the monomer that is added to..
-    int moleculesA = 1000; // bifunctional monomer A
-    int moleculesB = 1000; // bifunctional monomer B
+    double R = 0.008314; // ideal gas constant, kJ/(K mol)
+    double T = 273+101; // temperature (K)
+    // IGNORE THIS COMMENT need to randomly select whether A-B addition or B-A addition occurs.... then need to randomly select the monomer and the side of the monomer that is added to..
+    int moleculesA = num_of_molecules_in_simulation; // bifunctional monomer A
+    int moleculesB = num_of_molecules_in_simulation; // bifunctional monomer B
     // moleculeA = type 0, moleculeB = type 1
     bool front;
     bool back;
@@ -50,36 +51,32 @@ int main() {
     // will always have frontend = 0 and backend = 1.
 
     // KMC step
-    double kf=A_kf*exp(Ea_kf/(R*T)); // adding a to b
+    double kf=A_kf*exp(-Ea_kf/(R*T)); // adding a to b
     //double kba=A_kab*exp() 
     //double c = kf/V;
     // ideally rewrite this such that difference in reactivity between A adding to B and B adding to A is taken into account
     //double total_rate =c*(2*moleculesA+chainsA)*(2*moleculesB+chainsB); // 2*molecules because each monomer is bifunctional
     
-    // I should rewrite this in terms of reaction parameter c rather than k
     std::srand(std::time(0));
 
-    double time = 0;
-    double simulation_time = 1.0E-5;
-    chain_pool all_chains;
+    double time = 0; // seconds
+    double simulation_time = 60*60; // [=] seconds
+    chain_pool all_chains;  
     chain_pool loops;
 
     // KMC loop
     while (time<simulation_time) {
-        // first, case of constant concentrations
-        front=false;
-        back=false;
+
         // calculate propensity functions
-        double c = kf/V;
+        double c = kf/V; // 1 / (mol s)
         // update total rate
-        double total_rate =c*(2*moleculesA+chainsA)*(2*moleculesB+chainsB); // 2*molecules because each monomer is bifunctional
+        double total_rate =c*(2*moleculesA+chainsA)*(2*moleculesB+chainsB)/Na; // molecules/s 2*molecules because each monomer is bifunctional
 
         // choose timestep tau
         double r1 = 1.0*std::rand()/RAND_MAX; 
         double tau = (1/total_rate)*log(1/r1); // calculate timestep tau
 
         // choose reaction to take place
-        // pick which reaction to have occur
         // right now all reactions are equally likely
         double r2 = 1.0*std::rand()/RAND_MAX;
         double reaction = r2*total_rate;
@@ -89,7 +86,8 @@ int main() {
         double whichA = r3*(chainsA+2*moleculesA);
         double r4 = 1.0*std::rand()/RAND_MAX;
         double whichB = r4*(chainsB+2*moleculesB); 
-        
+        front=false;
+        back=false;
         // case for which two monomers react to form new chain
         if (whichA<2*moleculesA && whichB<2*moleculesB) {
             chain newchain;
@@ -103,9 +101,8 @@ int main() {
             chainsA++;
             chainsB++;  
         }
-
         // case for which one A monomer reacts with one B chain
-        if (whichA<2*moleculesA && whichB>2*moleculesB) {
+        else if (whichA<2*moleculesA && whichB>2*moleculesB) {
             // STEP 1: Select B chain
             int Bselect = (int) (whichB-2*moleculesB);
             int selected_chain = 0;
@@ -154,7 +151,7 @@ int main() {
             // could add a line to check that this is occuring properly
         }
         // case for which 1 B monomer reacts with 1 A chain
-        if (whichA>2*moleculesA && whichB<2*moleculesB) {
+        else if (whichA>2*moleculesA && whichB<2*moleculesB) {
             // STEP 1: Select A chain
             int Aselect = (int) (whichA-2*moleculesA);
             int selected_chain = 0;
@@ -202,7 +199,7 @@ int main() {
             // could add a line to check that this is occuring properly
         }
         // case for which 1 A chain reacts with 1 B chain
-        if (whichA>2*moleculesA && whichB>2*moleculesB) {
+        else if (whichA>2*moleculesA && whichB>2*moleculesB) {
             // STEP 1: select A chain
             int Aselect = (int) (whichA-2*moleculesA);
             int selected_A_chain = 0;
@@ -297,7 +294,7 @@ int main() {
                     // add A chain to back of B chain, delete A chain
                     all_chains[selected_B_chain].v.insert(all_chains[selected_B_chain].v.end(),all_chains[selected_A_chain].v.begin(),all_chains[selected_A_chain].v.end());
                     all_chains[selected_B_chain].backend=all_chains[selected_A_chain].backend;
-                    all_chains.erase(all_chains.begin()+selected_B_chain);
+                    all_chains.erase(all_chains.begin()+selected_A_chain); // modified this line 2:44pm on Jun 15
                 }
             }
             // case 3: back of A chain to front of B chain

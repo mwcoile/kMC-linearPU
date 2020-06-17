@@ -46,6 +46,11 @@ int main() {
     int sizer = all_chains[0].v.size(); // this is 4
     int lol = all_chains[0].v.front(); // I understand why this is 0
     int wtf = all_chains[0].v.back(); // but why is this also 0?
+    //int testagain=all_chains[0].v.begin();
+
+    double Na=6.02;
+    int num_of_molecules_in_simulation=1E4;
+    double V = num_of_molecules_in_simulation/Na;
     return 0;
 
 }
