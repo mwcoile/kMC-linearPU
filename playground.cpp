@@ -51,6 +51,7 @@ int main() {
     double Na=6.02;
     int num_of_molecules_in_simulation=1E4;
     double V = num_of_molecules_in_simulation/Na;
+    int tester[5] = {0};
     return 0;
 
 }

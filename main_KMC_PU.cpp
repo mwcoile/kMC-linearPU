@@ -1,6 +1,7 @@
 #include<iomanip>
 #include<stdlib.h>
 #include<iostream>
+#include<fstream>
 #include<string>
 #include<vector>
 #include<math.h>
@@ -10,11 +11,11 @@
 // This code is designed to generate polyurethane sequences
 int main() {
     // inputs //
-    double A_kf = exp(7.0); double Ea_kf = 40; // kJ/mol forward reaction 1
+    double A_kf = 371.5214/(60*60); double Ea_kf = 24.6; // A_kf units: L/mol h. Ea units: kJ/mol (kf = rate constant for forward reaction 1)
     double Na = 6.02E23;
     // for replicating Krol
     int num_of_molecules_in_simulation=1E4;
-    double V = num_of_molecules_in_simulation/Na;
+    double V = num_of_molecules_in_simulation/Na; // for 1 mol/L the volume is L (which is also dm^3)
     //double A_kba = 100; double Ea_kr = 10; // reverse reaction 1
     // I think I will have to get the number of monomers from an input file, as well as the number of different reactions
     // for 3 monomers there are 3+2+1 different reactions: 6
@@ -25,7 +26,7 @@ int main() {
     // For solvolysis, could we ignore the polymerization step? If so, I think this should be fairly straightforward. If not, I will need to include a balance between the
     // polymerization and depolymerization steps.
     double R = 0.008314; // ideal gas constant, kJ/(K mol)
-    double T = 273+101; // temperature (K)
+    double T = 273+80; // temperature (K)
     // IGNORE THIS COMMENT need to randomly select whether A-B addition or B-A addition occurs.... then need to randomly select the monomer and the side of the monomer that is added to..
     int moleculesA = num_of_molecules_in_simulation; // bifunctional monomer A
     int moleculesB = num_of_molecules_in_simulation; // bifunctional monomer B
@@ -47,20 +48,23 @@ int main() {
     
     //.. could instead write a loop which goes through chainpool and interrogates 
     // each chain for its ends. However, the above step saves that whole loop
-    // as long as properly handled. For difunctional monomers, the first dyad in a chain
+    // as long as properly handled. For bifunctional monomers, the first dyad in a chain
     // will always have frontend = 0 and backend = 1.
-
+    std::ofstream conc;
+    conc.open("concentrations.txt");
+    conc << "time           AA         BB         polymer \n";
+    std::ofstream F;
+    F.open("F_tomita.txt");
+    F << "time           F1         F2         F3         F4         F5         F6         F7         F8         F9n\n";
     // KMC step
-    double kf=A_kf*exp(-Ea_kf/(R*T)); // adding a to b
+    double kf= A_kf*exp(-Ea_kf/(R*T)); // adding a to b
     //double kba=A_kab*exp() 
-    //double c = kf/V;
     // ideally rewrite this such that difference in reactivity between A adding to B and B adding to A is taken into account
-    //double total_rate =c*(2*moleculesA+chainsA)*(2*moleculesB+chainsB); // 2*molecules because each monomer is bifunctional
     
     std::srand(std::time(0));
 
     double time = 0; // seconds
-    double simulation_time = 60*60; // [=] seconds
+    double simulation_time = 60*60*36; // [=] seconds (30 hours in seconds)
     chain_pool all_chains;  
     chain_pool loops;
 
@@ -334,32 +338,32 @@ int main() {
             }
             else
             {
-                // count up actual number of B chain ends
-                int i = 0;
-                int hey;
-                int countB_verify=0;
-                while (i<all_chains.size()) {
-                    if (all_chains[i].v[0]==1) {
-                        countB_verify++;
-                    }
-                    if (all_chains[i].v.back()==1) {
-                        countB_verify++;
-                    }
-                    hey = all_chains[i].v.back();
-                    i++;
-                }
-                // count up actual number of A chain ends
-                int j = 0;
-                int countA_verify=0;
-                while (j<all_chains.size()) {
-                    if (all_chains[j].v[0]==0) {
-                        countA_verify++;
-                    }
-                    if (all_chains[j].v.back()==0) {
-                        countA_verify++;
-                    }
-                    j++;
-                }
+                // // count up actual number of B chain ends
+                // int i = 0;
+                // int hey;
+                // int countB_verify=0;
+                // while (i<all_chains.size()) {
+                //     if (all_chains[i].v[0]==1) {
+                //         countB_verify++;
+                //     }
+                //     if (all_chains[i].v.back()==1) {
+                //         countB_verify++;
+                //     }
+                //     hey = all_chains[i].v.back();
+                //     i++;
+                // }
+                // // count up actual number of A chain ends
+                // int j = 0;
+                // int countA_verify=0;
+                // while (j<all_chains.size()) {
+                //     if (all_chains[j].v[0]==0) {
+                //         countA_verify++;
+                //     }
+                //     if (all_chains[j].v.back()==0) {
+                //         countA_verify++;
+                //     }
+                //     j++;
+                // }
 
                 something_went_wrong = true;
                 
@@ -368,7 +372,43 @@ int main() {
             chainsB--;
         }
         time += tau;
+        // record fractions of length 2, 3, 4 ... eventually add through 8, and dispersity
+        int F_krol [10] = {0}; // vector to track fractions to reproduce Krol and Gawdzik
+
+        for (int i=0;i<all_chains.size();i++){
+            if (all_chains[i].v.size()<10){
+                F_krol[all_chains[i].v.size()-1]++;
+            }
+            else if (all_chains[i].v.size()>=10) {
+                F_krol[9]++;
+            }
+        }
+        for (int i=0;i<loops.size();i++){
+            if (loops[i].v.size()<10){
+                F_krol[loops[i].v.size()]++;
+            }
+            else if (loops[i].v.size()>=10){
+                F_krol[9]++;
+            }
+        }
+        F << std::left << std::setw(10) << time << "     ";
+        // unfortunately the below hard codes in the length of F_krol "i<10"
+        for (int i=0;i<10;i++) {
+            if (i!=0){
+                F << std::setw(6) << F_krol[i]/(Na*V) << "     ";
+                if (i==9) F << "\n";
+            }
+            else {
+                F << std::setw(6) << (moleculesA+moleculesB)/(Na*V) << "     ";
+            }
+            
+        }
+        conc << std::left << std::setw(10) << time << "     " << std::setw(6) << moleculesA/(Na*V) << "     " << std::setw(6) << moleculesB/(Na*V) << "     " << std::setw(6) << (all_chains.size()+loops.size())/(Na*V) << "\n";
+        
     }
+
+    conc.close();
+    F.close();
     // total number of events that can occur is 1 for each reaction 
     return 0;
 }
