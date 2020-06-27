@@ -4,7 +4,7 @@
 #include<string>
 #include <vector>
 #include<math.h>
-
+#include<array>
 // author: Matthew
 // playground file for understanding C++
 //template class std::vector<MyClass>;
@@ -52,6 +52,14 @@ int main() {
     int num_of_molecules_in_simulation=1E4;
     double V = num_of_molecules_in_simulation/Na;
     int tester[5] = {0};
+    const int bignumber=28;
+    double testmore[bignumber]={};
+
+    std::vector<std::vector<int>> foo123={};
+    foo123.push_back({1,80});
+    int testermatthew=foo123[0][1];
+    std::array<int,3> helloarrays = {1,2,8};
+    int number = helloarrays.size();
     return 0;
 
 }

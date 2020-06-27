@@ -5,16 +5,33 @@
 #include<string>
 #include<vector>
 #include<math.h>
+#include<array>
+#include"chain_update.h"
+#include"molecular_weight.h"
 
 // author: Matthew
+void specificfunctionalgroup(int &A_index, int &B_index, std::array<int,2> moleculesA,std::array<int,1> moleculesB, int mu) {
+    int count=0;
+    for (A_index=0;A_index<moleculesA.size();A_index++) {
+        for (B_index=0;B_index<moleculesB.size();B_index++) {
+            if (count>=mu) {
+                return;
+            }
+            count++;
+        }
+    }
+}
 
 // This code is designed to generate polyurethane sequences
 int main() {
     // inputs //
-    double A_kf = 371.5214/(60*60); double Ea_kf = 24.6; // A_kf units: L/mol h. Ea units: kJ/mol (kf = rate constant for forward reaction 1)
-    double Na = 6.02E23;
+    double A_tomita = 371.5214/(60*60); double Ea_tomita = 24.6; // L/mol h
+    const int M = 2; // number of reaction channels considered
+    double A_kf[M] = {A_tomita,A_tomita}; double Ea_kf[M] = {Ea_tomita,Ea_tomita}; // A_kf units: L/mol h. Ea units: kJ/mol (kf = rate constant for forward reaction 1)
+    const double Na = 6.02E23;
     // for replicating Krol
     int num_of_molecules_in_simulation=1E4;
+    const double moleculesA0=num_of_molecules_in_simulation;
     double V = num_of_molecules_in_simulation/Na; // for 1 mol/L the volume is L (which is also dm^3)
     //double A_kba = 100; double Ea_kr = 10; // reverse reaction 1
     // I think I will have to get the number of monomers from an input file, as well as the number of different reactions
@@ -25,353 +42,102 @@ int main() {
     // But that would be in presence of a solvent... hmm so the solvent could attack any chain, anywhere (if you ignore the fact that realistically it could only attack at surface...)
     // For solvolysis, could we ignore the polymerization step? If so, I think this should be fairly straightforward. If not, I will need to include a balance between the
     // polymerization and depolymerization steps.
-    double R = 0.008314; // ideal gas constant, kJ/(K mol)
+    const double R = 0.008314; // ideal gas constant, kJ/(K mol)
     double T = 273+80; // temperature (K)
-    // IGNORE THIS COMMENT need to randomly select whether A-B addition or B-A addition occurs.... then need to randomly select the monomer and the side of the monomer that is added to..
-    int moleculesA = num_of_molecules_in_simulation; // bifunctional monomer A
-    int moleculesB = num_of_molecules_in_simulation; // bifunctional monomer B
+    std::array<int, 2> moleculesA = {num_of_molecules_in_simulation/2,num_of_molecules_in_simulation/2}; // bifunctional monomer containing functional group A
+    std::array<int, 1> moleculesB = {num_of_molecules_in_simulation}; // bifunctional monomer B
     // moleculeA = type 0, moleculeB = type 1
-    bool front;
-    bool back;
-    bool something_went_wrong = false;
-    struct chain
-    {
-        std::vector<int> v;
-        int frontend; // identity of species at start of vector
-        int backend; // identity of species at end of vector
-    };
-    // Need to keep track of all the polymer chains that have been created
-    typedef std::vector<chain> chain_pool;
+    std::array<double,2> monomermassA={1.0,1.0}; // g/mol
+    std::array<double,1> monomermassB={1.0}; // g/mol
+    double dispersity;
+    double Mn;
+    double Mw; 
+    double over_x; // conversion with respect to A functional groups!
     // also need to keep track of the ends of the chain
-    int chainsA = 0; // number of chain ends which are an "A"
-    int chainsB = 0; // number of chain ends which are a "B"
-    
-    //.. could instead write a loop which goes through chainpool and interrogates 
-    // each chain for its ends. However, the above step saves that whole loop
-    // as long as properly handled. For bifunctional monomers, the first dyad in a chain
+    std::array<int, 2> chainsA = {}; // number of chain ends which are an "A", initialize to 0
+    std::array<int, 1> chainsB = {}; // number of chain ends which are a "B", initialize to 0
+    chain_pool all_chains;  
+    chain_pool loops;
+    // For bifunctional monomers, the first dyad in a chain
     // will always have frontend = 0 and backend = 1.
     std::ofstream conc;
     conc.open("concentrations.txt");
     conc << "time           AA         BB         polymer \n";
     std::ofstream F;
-    F.open("F_tomita.txt");
+    F.open("F_tomita2.txt");
     F << "time           F1         F2         F3         F4         F5         F6         F7         F8         F9n\n";
-    // KMC step
-    double kf= A_kf*exp(-Ea_kf/(R*T)); // adding a to b
-    //double kba=A_kab*exp() 
+    std::ofstream molwt;
+    molwt.open("molecular_weight.txt"); // store time, Mn, Mw, Dispersity
+    molwt << "time           Conversion     Mn         Mw         D\n";
+    std::ofstream debug;
+    debug.open("debugging.txt");
+    debug << "time           total rate     Unreacted functional groups\n";
+    // calculate all rate constants from kinetic parameters and temperature
+    double kf[M];
+    for (int i=0;i<M;i++) {
+        kf[i]=A_kf[i]*exp(-Ea_kf[i]/(R*T)); // adding a to b
+    }
     // ideally rewrite this such that difference in reactivity between A adding to B and B adding to A is taken into account
     
     std::srand(std::time(0));
-
     double time = 0; // seconds
-    double simulation_time = 60*60*36; // [=] seconds (30 hours in seconds)
-    chain_pool all_chains;  
-    chain_pool loops;
+    double simulation_time = 60*60*36*10; // [=] seconds 
 
     // KMC loop
     while (time<simulation_time) {
 
         // calculate propensity functions
-        double c = kf/V; // 1 / (mol s)
+        double c[M];
+        for (int i=0;i<M;i++) {
+            c[i] = kf[i]/V; // 1 / (mol s)
+        }
         // update total rate
-        double total_rate =c*(2*moleculesA+chainsA)*(2*moleculesB+chainsB)/Na; // molecules/s 2*molecules because each monomer is bifunctional
-
+        double total_rate=0;
+        // note: first entries in total rate are moleculesA.size()*moleculesB.size() looping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
+        int v=0;
+        int h[M]={};
+        double Rv[M]={};
+        for (int j=0;j<moleculesA.size();j++) {
+            for (int k=0;k<moleculesB.size();k++) {
+                h[v]=(2*moleculesA[j]+chainsA[j])*(2*moleculesB[k]+chainsB[k]); // hv is the product of the numbers of molecular reactants involved in the vth reaction channel present at time t
+                Rv[v]=c[v]*h[v]/Na; // molecules/s 2*molecules because each monomer is bifunctional
+                total_rate+=Rv[v]; // molecules/s 2*molecules because each monomer is bifunctional
+                v+=1;
+            }
+        }
+        //double total_rate =c*(2*moleculesA+chainsA)*(2*moleculesB+chainsB)/Na; 
         // choose timestep tau
         double r1 = 1.0*std::rand()/RAND_MAX; 
         double tau = (1/total_rate)*log(1/r1); // calculate timestep tau
+        // choose reaction to take place using Gillespie algorithm
 
-        // choose reaction to take place
-        // right now all reactions are equally likely
         double r2 = 1.0*std::rand()/RAND_MAX;
-        double reaction = r2*total_rate;
-
-        // pick which A, B
+        //double reaction = r2*total_rate;
+        int mu=0;
+        double sumRv=0; // Lin Wang eqn 1 multiplied by total rate
+        while (sumRv<r2*total_rate) { // this is probably better implemented in a do loop
+            sumRv+=Rv[mu];
+            if (sumRv<r2*total_rate) mu++;
+        }
+        // Translation from reaction channel mu to 
+        // specific AA monomer type and BB monomer type 
+        int A_index=0;
+        int B_index=0;
+        int count=0;
+        specificfunctionalgroup(A_index, B_index, moleculesA, moleculesB, mu);
+        
+        // pick which A, B functional group
         double r3 = 1.0*std::rand()/RAND_MAX;
-        double whichA = r3*(chainsA+2*moleculesA);
+        double whichA = r3*(chainsA[A_index]+2*moleculesA[A_index]);
         double r4 = 1.0*std::rand()/RAND_MAX;
-        double whichB = r4*(chainsB+2*moleculesB); 
-        front=false;
-        back=false;
-        // case for which two monomers react to form new chain
-        if (whichA<2*moleculesA && whichB<2*moleculesB) {
-            chain newchain;
-            newchain.frontend = 0; // i.e. front end is A
-            newchain.backend = 1; // backend is defined arbitrarily as species B on new polymer chain
-            newchain.v.push_back(newchain.frontend);
-            newchain.v.push_back(newchain.backend);
-            all_chains.push_back(newchain);
-            moleculesA--;
-            moleculesB--;
-            chainsA++;
-            chainsB++;  
-        }
-        // case for which one A monomer reacts with one B chain
-        else if (whichA<2*moleculesA && whichB>2*moleculesB) {
-            // STEP 1: Select B chain
-            int Bselect = (int) (whichB-2*moleculesB);
-            int selected_chain = 0;
-            int countB = 0;
-
-            while (selected_chain<all_chains.size()){
-                // select which B chain and which B end
-                if (all_chains[selected_chain].backend==1){
-                    countB++;
-                }
-                if (Bselect<countB) {
-                    back=true;
-                    break;
-                }
-                if (all_chains[selected_chain].frontend==1){
-                    countB++;
-                }
-                if (Bselect<countB) {
-                    front=true;
-                    break;
-                }
-                selected_chain++;
-            }
-
-            // STEP 2: which end of the chain has B?
-            // CASE 1: if the B is at the end of the chain
-            if (1 == all_chains[selected_chain].v.back() && back) {
-                // then add A to the end
-                all_chains[selected_chain].v.push_back(0); // can I store a pointer to all_chains[selected_chain] as something shorter?
-                // and update the trackers accordingly
-                all_chains[selected_chain].backend=0;
-                chainsB--;
-                chainsA++;
-                moleculesA--;
-            }
-            // CASE 2: if the B is at the front of the chain
-            else if (1 == all_chains[selected_chain].v.front() && front) {
-                // then add A to the front
-                all_chains[selected_chain].v.insert(all_chains[selected_chain].v.begin(),0);
-                // and update the trackers accordingly
-                all_chains[selected_chain].frontend=0;
-                chainsB--;
-                chainsA++;
-                moleculesA--;
-            }
-            // could add a line to check that this is occuring properly
-        }
-        // case for which 1 B monomer reacts with 1 A chain
-        else if (whichA>2*moleculesA && whichB<2*moleculesB) {
-            // STEP 1: Select A chain
-            int Aselect = (int) (whichA-2*moleculesA);
-            int selected_chain = 0;
-            int countA = 0;
-            while (selected_chain<all_chains.size()) {
-                // select which A chain and which A end
-                if (all_chains[selected_chain].backend==0){
-                    countA++;
-                }
-                if (Aselect<countA) {
-                    back=true;
-                    break;
-                }
-                if (all_chains[selected_chain].frontend==0){
-                    countA++;
-                }
-                if (Aselect<countA) {
-                    front=true;
-                    break;
-                }
-                selected_chain++;
-            }
-
-            // STEP 2: which end of the chain has A?
-            // CASE 1: if the A is at the end of the chain .. but what to do if both ends have A?
-            if (0 == all_chains[selected_chain].v.back() && back) {
-                // then add B to the end
-                all_chains[selected_chain].v.push_back(1); // can I store a pointer to all_chains[selected_chain] as something shorter?
-                // and update the trackers accordingly
-                all_chains[selected_chain].backend=1;
-                chainsB++;
-                chainsA--;
-                moleculesB--;
-            }
-            // CASE 2: if the A is at the front of the chain
-            else if (0 == all_chains[selected_chain].v.front() && front) {
-                // then add B to the front
-                all_chains[selected_chain].v.insert(all_chains[selected_chain].v.begin(),1);
-                // and update the trackers accordingly
-                all_chains[selected_chain].frontend=1;
-                chainsB++;
-                chainsA--;
-                moleculesB--;
-            }
-            // could add a line to check that this is occuring properly
-        }
-        // case for which 1 A chain reacts with 1 B chain
-        else if (whichA>2*moleculesA && whichB>2*moleculesB) {
-            // STEP 1: select A chain
-            int Aselect = (int) (whichA-2*moleculesA);
-            int selected_A_chain = 0;
-            int countA = 0;
-            bool frontA=false;
-            bool backA=false;
-
-            while (selected_A_chain<all_chains.size()) {
-                // select which A chain and which A end
-                if (all_chains[selected_A_chain].backend==0){
-                    countA++;
-                }
-                if (Aselect<countA) {
-                    backA=true;
-                    break;
-                }
-                if (all_chains[selected_A_chain].frontend==0){
-                    countA++;
-                }
-                if (Aselect<countA) {
-                    frontA=true;
-                    break;
-                }
-                selected_A_chain++;
-            }
-            // STEP 2: select B chain
-            int Bselect = (int) (whichB-2*moleculesB);
-            int selected_B_chain = 0;
-            int countB = 0;
-            bool backB=false;
-            bool frontB=false;
-            while (selected_B_chain<all_chains.size()){
-                // select which B chain and which B end
-                if (all_chains[selected_B_chain].backend==1){
-                    countB++;
-                }
-                if (Bselect<countB) {
-                    backB=true;
-                    break;
-                }
-                if (all_chains[selected_B_chain].frontend==1){
-                    countB++;
-                }
-                if (Bselect<countB) {
-                    frontB=true;
-                    break;
-                }
-                selected_B_chain++;
-            }
-            // which chain is getting added to and which chain is getting deleted?
-            bool add_to_chain_A = false;
-            if (selected_A_chain<selected_B_chain) {
-                add_to_chain_A = true;
-            }
-            // case 0: loop formation
-            if (selected_A_chain==selected_B_chain){
-                // delete from vector of chains
-                // add to loops vector. This does not currently consider whether sterically it is possible for this to occur (i.e. loops consisting of 2 monomers are permitted)
-                loops.push_back(all_chains[selected_A_chain]);
-                all_chains.erase(all_chains.begin()+selected_A_chain); // what the heck is an iterator, and what's the difference between it and a const_iterator
-            }
-            // case 1: front of A chain to front of B chain
-            else if (frontA && frontB) {
-                if (add_to_chain_A) {
-                    // reverse A chain, append B chain to end of A chain, update the ends, delete B chain
-                    std::reverse(all_chains[selected_A_chain].v.begin(),all_chains[selected_A_chain].v.end());
-                    all_chains[selected_A_chain].v.insert(all_chains[selected_A_chain].v.end(),all_chains[selected_B_chain].v.begin(),all_chains[selected_B_chain].v.end());
-                    all_chains[selected_A_chain].frontend=all_chains[selected_A_chain].backend;
-                    all_chains[selected_A_chain].backend=all_chains[selected_B_chain].backend;
-                    all_chains.erase(all_chains.begin()+selected_B_chain);
-                }
-                else {
-                    // reverse B chain, append A to end of B chain, update the ends, delete A chain
-                    std::reverse(all_chains[selected_B_chain].v.begin(),all_chains[selected_B_chain].v.end()); 
-                    all_chains[selected_B_chain].v.insert(all_chains[selected_B_chain].v.end(),all_chains[selected_A_chain].v.begin(),all_chains[selected_A_chain].v.end());
-                    all_chains[selected_B_chain].frontend=all_chains[selected_B_chain].backend;
-                    all_chains[selected_B_chain].backend=all_chains[selected_A_chain].backend;
-                    all_chains.erase(all_chains.begin()+selected_A_chain);
-                }
-            }
-            // case 2: front of A chain to back of B chain
-            else if (frontA && backB) {
-                if (add_to_chain_A) {
-                    // add A chain to B chain, then put it in the A chain location, then delete chain B
-                    all_chains[selected_B_chain].v.insert(all_chains[selected_B_chain].v.end(),all_chains[selected_A_chain].v.begin(),all_chains[selected_A_chain].v.end());
-                    all_chains[selected_B_chain].backend=all_chains[selected_A_chain].backend;
-                    std::iter_swap(all_chains.begin()+selected_A_chain,all_chains.begin()+selected_B_chain); 
-                    // I'm not sure that the above and below lines are doing what I am intending
-                    all_chains.erase(all_chains.begin()+selected_B_chain);
-                }
-                else {
-                    // add A chain to back of B chain, delete A chain
-                    all_chains[selected_B_chain].v.insert(all_chains[selected_B_chain].v.end(),all_chains[selected_A_chain].v.begin(),all_chains[selected_A_chain].v.end());
-                    all_chains[selected_B_chain].backend=all_chains[selected_A_chain].backend;
-                    all_chains.erase(all_chains.begin()+selected_A_chain); // modified this line 2:44pm on Jun 15
-                }
-            }
-            // case 3: back of A chain to front of B chain
-            else if (backA && frontB) {
-                if (add_to_chain_A) {
-                    // add B chain to back of A chain
-                    all_chains[selected_A_chain].v.insert(all_chains[selected_A_chain].v.end(),all_chains[selected_B_chain].v.begin(),all_chains[selected_B_chain].v.end());
-                    all_chains[selected_A_chain].backend=all_chains[selected_B_chain].backend;
-                    all_chains.erase(all_chains.begin()+selected_B_chain);
-                }
-                else {
-                    // add B chain to back of A chain, then put it in the B chain location, then
-                    all_chains[selected_A_chain].v.insert(all_chains[selected_A_chain].v.end(),all_chains[selected_B_chain].v.begin(),all_chains[selected_B_chain].v.end());
-                    all_chains[selected_A_chain].backend=all_chains[selected_B_chain].backend;
-                    //all_chains.at(selected_B_chain)=all_chains[selected_A_chain]; 
-                    std::iter_swap(all_chains.begin()+selected_A_chain,all_chains.begin()+selected_B_chain); 
-                    // I'm not sure that the above and below lines are doing what I am intending
-                    all_chains.erase(all_chains.begin()+selected_A_chain);
-                }
-            }
-            // case 4: back of A chain to back of B chain
-            else if (backA && backB) {
-                if (add_to_chain_A) {
-                    // reverse chain B, add to end of chain A, delete chain B
-                    std::reverse(all_chains[selected_B_chain].v.begin(),all_chains[selected_B_chain].v.end());
-                    all_chains[selected_A_chain].v.insert(all_chains[selected_A_chain].v.end(),all_chains[selected_B_chain].v.begin(),all_chains[selected_B_chain].v.end());
-                    all_chains[selected_A_chain].backend=all_chains[selected_B_chain].frontend;
-                    all_chains.erase(all_chains.begin()+selected_B_chain);
-                }
-                else {
-                    // reverse chain A, add to end of chain B, delete chain A
-                    std::reverse(all_chains[selected_A_chain].v.begin(),all_chains[selected_A_chain].v.end());
-                    all_chains[selected_B_chain].v.insert(all_chains[selected_B_chain].v.end(),all_chains[selected_A_chain].v.begin(),all_chains[selected_A_chain].v.end());
-                    all_chains[selected_B_chain].backend=all_chains[selected_A_chain].frontend;
-                    all_chains.erase(all_chains.begin()+selected_A_chain);
-                }
-            }
-            else
-            {
-                // // count up actual number of B chain ends
-                // int i = 0;
-                // int hey;
-                // int countB_verify=0;
-                // while (i<all_chains.size()) {
-                //     if (all_chains[i].v[0]==1) {
-                //         countB_verify++;
-                //     }
-                //     if (all_chains[i].v.back()==1) {
-                //         countB_verify++;
-                //     }
-                //     hey = all_chains[i].v.back();
-                //     i++;
-                // }
-                // // count up actual number of A chain ends
-                // int j = 0;
-                // int countA_verify=0;
-                // while (j<all_chains.size()) {
-                //     if (all_chains[j].v[0]==0) {
-                //         countA_verify++;
-                //     }
-                //     if (all_chains[j].v.back()==0) {
-                //         countA_verify++;
-                //     }
-                //     j++;
-                // }
-
-                something_went_wrong = true;
-                
-            }
-            chainsA--;
-            chainsB--;
-        }
+        double whichB = r4*(chainsB[B_index]+2*moleculesB[B_index]); 
+        // update chains
+        explicit_sequence_record(whichA,whichB,moleculesA,moleculesB,A_index,B_index,chainsA,chainsB,all_chains,loops);
         time += tau;
+        
+        // END KMC CALCULATIONS. 
+
+        // RECORD SEQUENCE STARTS
         // record fractions of length 2, 3, 4 ... eventually add through 8, and dispersity
         int F_krol [10] = {0}; // vector to track fractions to reproduce Krol and Gawdzik
 
@@ -399,16 +165,42 @@ int main() {
                 if (i==9) F << "\n";
             }
             else {
-                F << std::setw(6) << (moleculesA+moleculesB)/(Na*V) << "     ";
+                int total_monomer = 0; // calculate total amount of monomer
+                // add up total number of A molecules
+                for (int j=0;j<moleculesA.size();j++) {
+                    total_monomer+=moleculesA[j];
+                }
+                for (int j=0;j<moleculesB.size();j++) {
+                    total_monomer+=moleculesB[j];
+                }
+                F << std::setw(6) << (total_monomer)/(Na*V) << "     ";
             }
             
         }
-        conc << std::left << std::setw(10) << time << "     " << std::setw(6) << moleculesA/(Na*V) << "     " << std::setw(6) << moleculesB/(Na*V) << "     " << std::setw(6) << (all_chains.size()+loops.size())/(Na*V) << "\n";
+        conc << std::left << std::setw(10) << time << "     " << std::setw(6) << moleculesA.size()/(Na*V) << "     " << std::setw(6) << moleculesB.size()/(Na*V) << "     " << std::setw(6) << (all_chains.size()+loops.size())/(Na*V) << "\n";
         
-    }
+        // Record dispersity here at some point
+        molecular_weight(Mn, Mw, all_chains, loops, moleculesA, moleculesB, A_index, B_index, monomermassA, monomermassB);
+        dispersity=Mw/Mn; // calculate polydispersity index PDI
+        // the below overall conversion line could be improved
+        over_x=1-(chainsA[0]+2*moleculesA[0]+chainsA[1]+2*moleculesA[1])/(2*moleculesA0); // calculate overall conversion of A functional group
+        int unreactedfunctionalgroups=0;
+        for (int i=0; i<moleculesA.size();i++) {
+            unreactedfunctionalgroups+=2*moleculesA[i]+chainsA[i];
+        }
+        for (int i=0; i<moleculesB.size();i++) {
+            unreactedfunctionalgroups+=2*moleculesB[i]+chainsB[i];
+        }
+        molwt << std::left << std::setw(10) << time << "     " << std::setw(10) << over_x << "     " << std::setw(6) << Mn << "     " << std::setw(6) << Mw << "     " << std::setw(6) << dispersity << "     " << std::setw(10) << total_rate << "     " << std::setw(6) << unreactedfunctionalgroups << "\n";
+        //debug << std::left << std::setw(10) << time << 
+        }
 
     conc.close();
     F.close();
+    molwt.close();
+    debug.close();
+    // could easily print all sequences here too if desired
+
     // total number of events that can occur is 1 for each reaction 
     return 0;
 }
