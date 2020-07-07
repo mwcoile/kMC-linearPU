@@ -16,7 +16,7 @@ int main() {
     double A_kf = 371.5214/(60*60); double Ea_kf = 24.6; // A_kf units: L/mol h. Ea units: kJ/mol (kf = rate constant for forward reaction 1)
     const double Na = 6.02E23;
     // for replicating Krol
-    int num_of_molecules_in_simulation=1E4;
+    int num_of_molecules_in_simulation=1E5;
     const double moleculesA0=num_of_molecules_in_simulation;
     double V = num_of_molecules_in_simulation/Na; // for 1 mol/L the volume is L (which is also dm^3)
     //double A_kba = 100; double Ea_kr = 10; // reverse reaction 1

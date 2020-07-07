@@ -5,11 +5,15 @@
 #include <vector>
 #include<math.h>
 #include<array>
+#include<chrono>
 // author: Matthew
 // playground file for understanding C++
 //template class std::vector<MyClass>;
 
+using namespace std::chrono;
+
 int main() {
+    auto start = high_resolution_clock::now();
     std::srand(std::time(NULL));
     double r1 = 1.0*std::rand()/RAND_MAX; 
     double r2 = 1.0*std::rand()/RAND_MAX;
@@ -60,6 +64,26 @@ int main() {
     int testermatthew=foo123[0][1];
     std::array<int,3> helloarrays = {1,2,8};
     int number = helloarrays.size();
+
+    unsigned long long int a[65],i;
+    a[0]=1;
+    for(i=1;i<65;i++) {
+        a[i]=2<<(i-1);
+        printf("i=%d a[i]=%lld\n",i, a[i]);
+    }
+    int q = 2<<12;
+    time_t t = time(0);   // get time now
+    struct tm * now = localtime( & t );
+
+    char buffer [80];
+    strftime (buffer,80,"%Y%m%d_%I%M%S%p_%Z",now);
+    std::string phooey = "lolz";
+    phooey.append(buffer);
+
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop-start);
+    
+    auto sixtytwo = duration.count();
     return 0;
 
 }

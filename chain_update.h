@@ -15,43 +15,43 @@ struct chain
 // Need to keep track of all the polymer chains that have been created
 typedef std::vector<chain> chain_pool;
 
-void explicit_sequence_record(int whichA, int whichB, std::array<int,2>& moleculesA, std::array<int,1>& moleculesB, int& A_index, int& B_index, std::array<int, 2>& chainsA, std::array<int, 1>& chainsB, chain_pool& all_chains, chain_pool& loops) {
+void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA, std::vector<int>& monomerB, int& A_monomer_type, int& B_monomer_type, std::vector<int>& chainsA, std::vector<int>& chainsB, chain_pool& all_chains, chain_pool& loops) {
     bool front = false;
     bool back = false;
     bool something_went_wrong = false;
     // case for which 1 A monomer reacts with 1 B monomer
-    if (whichA<2*moleculesA[A_index] && whichB<2*moleculesB[B_index]) {
+    if (whichA<2*monomerA[A_monomer_type] && whichB<2*monomerB[B_monomer_type]) {
         chain newchain; // make  a new chain
         newchain.frontend = 0; // i.e. front end is A
         newchain.backend = 1; // backend is defined arbitrarily as species B on new polymer chain
-        newchain.v.push_back({newchain.frontend,A_index});
-        newchain.v.push_back({newchain.backend,B_index});
+        newchain.v.push_back({newchain.frontend,A_monomer_type});
+        newchain.v.push_back({newchain.backend,B_monomer_type});
         all_chains.push_back(newchain);
-        moleculesA[A_index]--; // update the trackers
-        moleculesB[B_index]--; // update the trackers
-        chainsA[A_index]++; // update the trackers
-        chainsB[B_index]++;  // update the trackers
+        monomerA[A_monomer_type]--; // update the trackers
+        monomerB[B_monomer_type]--; // update the trackers
+        chainsA[A_monomer_type]++; // update the trackers
+        chainsB[B_monomer_type]++;  // update the trackers
     }
     // case for which 1 A monomer reacts with 1 B chain
-    else if (whichA<2*moleculesA[A_index] && whichB>2*moleculesB[B_index]) {
+    else if (whichA<2*monomerA[A_monomer_type] && whichB>2*monomerB[B_monomer_type]) {
         // STEP 1: Select B chain
-        int Bselect = (int) (whichB-2*moleculesB[B_index]);
+        int B_functional_group = (int) (whichB-2*monomerB[B_monomer_type]);
         int selected_chain = 0;
         int countB = 0;
 
         while (selected_chain<all_chains.size()){
             // select which B chain and which B end
-            if (all_chains[selected_chain].backend==1 && all_chains[selected_chain].v.back()[1]==B_index) { // if B functional group on back AND correct type of B monomer
+            if (all_chains[selected_chain].backend==1 && all_chains[selected_chain].v.back()[1]==B_monomer_type) { // if B functional group on back AND correct type of B monomer
                 countB++;
             }
-            if (Bselect<countB) {
+            if (B_functional_group<countB) {
                 back=true;
                 break;
             }
-            if (all_chains[selected_chain].frontend==1 && all_chains[selected_chain].v.front()[1]==B_index){ // if B functional group on front AND correct type of B monomer
+            if (all_chains[selected_chain].frontend==1 && all_chains[selected_chain].v.front()[1]==B_monomer_type){ // if B functional group on front AND correct type of B monomer
                 countB++;
             }
-            if (Bselect<countB) {
+            if (B_functional_group<countB) {
                 front=true;
                 break;
             }
@@ -62,44 +62,44 @@ void explicit_sequence_record(int whichA, int whichB, std::array<int,2>& molecul
         // CASE 1: if the B is at the end of the chain
         if (back) { // these two conditions are redundant! Just use if (back) {} 1 == all_chains[selected_chain].v.back()[0] && 
             // then add A to the end
-            all_chains[selected_chain].v.push_back({0,A_index}); // can I store a pointer to all_chains[selected_chain] as something shorter?
+            all_chains[selected_chain].v.push_back({0,A_monomer_type}); // can I store a pointer to all_chains[selected_chain] as something shorter?
             // and update the trackers accordingly
             all_chains[selected_chain].backend=0;
-            chainsB[B_index]--;
-            chainsA[A_index]++;
-            moleculesA[A_index]--;
+            chainsB[B_monomer_type]--;
+            chainsA[A_monomer_type]++;
+            monomerA[A_monomer_type]--;
         }
         // CASE 2: if the B is at the front of the chain
         else if (front) { //1 == all_chains[selected_chain].v.front()[0] && 
             // then add A to the front
-            all_chains[selected_chain].v.insert(all_chains[selected_chain].v.begin(),{0,A_index});
+            all_chains[selected_chain].v.insert(all_chains[selected_chain].v.begin(),{0,A_monomer_type});
             // and update the trackers accordingly
             all_chains[selected_chain].frontend=0;
-            chainsB[B_index]--;
-            chainsA[A_index]++;
-            moleculesA[A_index]--;
+            chainsB[B_monomer_type]--;
+            chainsA[A_monomer_type]++;
+            monomerA[A_monomer_type]--;
         }
         // could add a line to check that this is occurring properly
     }
     // case for which 1 B monomer reacts with 1 A chain
-    else if (whichA>2*moleculesA[A_index] && whichB<2*moleculesB[B_index]) {
+    else if (whichA>2*monomerA[A_monomer_type] && whichB<2*monomerB[B_monomer_type]) {
         // STEP 1: Select A chain
-        int Aselect = (int) (whichA-2*moleculesA[A_index]);
+        int A_functional_group = (int) (whichA-2*monomerA[A_monomer_type]);
         int selected_chain = 0;
         int countA = 0;
         while (selected_chain<all_chains.size()) {
             // select which A chain and which A end
-            if (all_chains[selected_chain].backend==0 && all_chains[selected_chain].v.back()[1]==A_index) { // if A functional group on back AND correct type of A monomer
+            if (all_chains[selected_chain].backend==0 && all_chains[selected_chain].v.back()[1]==A_monomer_type) { // if A functional group on back AND correct type of A monomer
                 countA++;
             }
-            if (Aselect<countA) {
+            if (A_functional_group<countA) {
                 back=true;
                 break;
             }
-            if (all_chains[selected_chain].frontend==0 && all_chains[selected_chain].v.front()[1]==A_index) { // if A functional group on front AND correct type of A monomer
+            if (all_chains[selected_chain].frontend==0 && all_chains[selected_chain].v.front()[1]==A_monomer_type) { // if A functional group on front AND correct type of A monomer
                 countA++;
             }
-            if (Aselect<countA) {
+            if (A_functional_group<countA) {
                 front=true;
                 break;
             }
@@ -110,29 +110,29 @@ void explicit_sequence_record(int whichA, int whichB, std::array<int,2>& molecul
         // CASE 1: if the A is at the end of the chain .. but what to do if both ends have A?
         if (back) { //0 == all_chains[selected_chain].v.back()[0] && 
             // then add B to the end
-            all_chains[selected_chain].v.push_back({1,B_index}); // can I store a pointer to all_chains[selected_chain] as something shorter?
+            all_chains[selected_chain].v.push_back({1,B_monomer_type}); // can I store a pointer to all_chains[selected_chain] as something shorter?
             // and update the trackers accordingly
             all_chains[selected_chain].backend=1;
-            chainsB[B_index]++;
-            chainsA[A_index]--;
-            moleculesB[B_index]--;
+            chainsB[B_monomer_type]++;
+            chainsA[A_monomer_type]--;
+            monomerB[B_monomer_type]--;
         }
         // CASE 2: if the A is at the front of the chain
         else if (front) { //0 == all_chains[selected_chain].v.front()[0] && 
             // then add B to the front
-            all_chains[selected_chain].v.insert(all_chains[selected_chain].v.begin(),{1,B_index});
+            all_chains[selected_chain].v.insert(all_chains[selected_chain].v.begin(),{1,B_monomer_type});
             // and update the trackers accordingly
             all_chains[selected_chain].frontend=1;
-            chainsB[B_index]++;
-            chainsA[A_index]--;
-            moleculesB[B_index]--;
+            chainsB[B_monomer_type]++;
+            chainsA[A_monomer_type]--;
+            monomerB[B_monomer_type]--;
         }
         // could add a line to check that this is occuring properly
     }
     // case for which 1 A chain reacts with 1 B chain
-    else if (whichA>2*moleculesA[A_index] && whichB>2*moleculesB[B_index]) {
+    else if (whichA>2*monomerA[A_monomer_type] && whichB>2*monomerB[B_monomer_type]) {
         // STEP 1: select A chain
-        int Aselect = (int) (whichA-2*moleculesA[A_index]);
+        int A_functional_group = (int) (whichA-2*monomerA[A_monomer_type]);
         int selected_A_chain = 0;
         int countA = 0;
         bool frontA=false;
@@ -140,41 +140,41 @@ void explicit_sequence_record(int whichA, int whichB, std::array<int,2>& molecul
 
         while (selected_A_chain<all_chains.size()) {
             // select which A chain and which A end
-            if (all_chains[selected_A_chain].backend==0 && all_chains[selected_A_chain].v.back()[1]==A_index){ // if A functional group on back AND correct type of A monomer
+            if (all_chains[selected_A_chain].backend==0 && all_chains[selected_A_chain].v.back()[1]==A_monomer_type){ // if A functional group on back AND correct type of A monomer
                 countA++;
             }
-            if (Aselect<countA) {
+            if (A_functional_group<countA) {
                 backA=true;
                 break;
             }
-            if (all_chains[selected_A_chain].frontend==0 && all_chains[selected_A_chain].v.front()[1]==A_index){ // if A functional group on back AND correct type of A monomer
+            if (all_chains[selected_A_chain].frontend==0 && all_chains[selected_A_chain].v.front()[1]==A_monomer_type){ // if A functional group on back AND correct type of A monomer
                 countA++;
             }
-            if (Aselect<countA) {
+            if (A_functional_group<countA) {
                 frontA=true;
                 break;
             }
             selected_A_chain++;
         }
         // STEP 2: select B chain
-        int Bselect = (int) (whichB-2*moleculesB[B_index]);
+        int B_functional_group = (int) (whichB-2*monomerB[B_monomer_type]);
         int selected_B_chain = 0;
         int countB = 0;
         bool backB=false;
         bool frontB=false;
         while (selected_B_chain<all_chains.size()){
             // select which B chain and which B end
-            if (all_chains[selected_B_chain].backend==1 && all_chains[selected_B_chain].v.back()[1]==B_index){ // if B functional group on back AND correct type of B monomer
+            if (all_chains[selected_B_chain].backend==1 && all_chains[selected_B_chain].v.back()[1]==B_monomer_type){ // if B functional group on back AND correct type of B monomer
                 countB++;
             }
-            if (Bselect<countB) {
+            if (B_functional_group<countB) {
                 backB=true;
                 break;
             }
-            if (all_chains[selected_B_chain].frontend==1 && all_chains[selected_B_chain].v.front()[1]==B_index){ // if B functional group on front AND correct type of B monomer
+            if (all_chains[selected_B_chain].frontend==1 && all_chains[selected_B_chain].v.front()[1]==B_monomer_type){ // if B functional group on front AND correct type of B monomer
                 countB++;
             }
-            if (Bselect<countB) {
+            if (B_functional_group<countB) {
                 frontB=true;
                 break;
             }
@@ -264,8 +264,8 @@ void explicit_sequence_record(int whichA, int whichB, std::array<int,2>& molecul
         {
             something_went_wrong = true;
         }
-        chainsA[A_index]--;
-        chainsB[B_index]--;
+        chainsA[A_monomer_type]--;
+        chainsB[B_monomer_type]--;
     }
     
 }
