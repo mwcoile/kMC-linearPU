@@ -68,9 +68,6 @@ int main() {
     const double Na = 6.02E23; // avogadro's number: items per mole
     const double R = 0.008314; // ideal gas constant, kJ/(K mol)
     double V = num_of_molecules_in_simulation/(Na*total_monomer_concentration); // Volume in L. For 1 mol/L the volume is L (which is also dm^3)
-    double dispersity;
-    double Mn=0;
-    double Mw; 
     double over_x; // overall conversion with respect to A functional groups!
     chain_pool all_chains; // vector of chain objects to store sequences and chain information in
     chain_pool loops; // vector of chain objects which have formed loops
@@ -80,25 +77,30 @@ int main() {
     std::vector<int> chainsB(monomermassB.size(),0); // number of chain ends of each B monomer type, initialize to 0. 
     // chainsB[0] stores # of B1 chain ends, [1] stores # of A2 chain ends, etc.
 
-    // For bifunctional monomers, the first dyad in a chain
-    // will always have frontend = 0 and backend = 1.
-    //std::ofstream conc;
-    //conc.open("concentrations.txt");
-    //conc << "time           AA1        AA2        BB         polymer \n";
-    //std::ofstream F;
-    //F.open("F_tomita2_100k.txt");
-    //F << "time           F1         F2         F3         F4         F5         F6         F7         F8         F9n\n";
+    // For bifunctional monomers, the first dyad in a chain will always have frontend = 0 and backend = 1.
     std::ofstream molwt;
     time_t t = time(0);   // get current time
     struct tm * now = localtime( & t );
     char date[80];
     strftime (date,80,"%Y%m%d_%I%M%S%p_%Z",now); 
     std::string str(date);
-    std::string filename = "molecular_weight_Beniah_10ktest";
-    std::string molwtfilename = date+filename;
+    std::string filename = "molecular_weight_Beniah_10ktest.txt";
+    std::string path = "/Users/baboo/Documents/Research/Polymer_Recycling_Project/MiscellaneousResources/KMC_PU/Output/";
+    std::string molwtfilename = path+date+filename;
     molwt.open(molwtfilename); // store time, Mn, Mw, Dispersity
     molwt << "time           Conversion     Mn         Mw         D\n";
 
+    // declare variables needed to track molecular weight
+    double sumMiNi=0;
+    double sumNi=0;
+    double sumMi2Ni=0;
+    double dispersity;
+    double Mn=0;
+    double Mw=0; 
+    bool loop = false;
+    double Mi_A; double Mi_B;
+    initialize_molecular_weight(Mn, Mw, monomerA, monomerB, monomermassA, monomermassB, sumNi, sumMiNi, sumMi2Ni);
+    
     // calculate all rate constants from kinetic parameters and temperature
     std::vector<double> kf(M);
     for (int i=0;i<M;i++) {
@@ -111,7 +113,7 @@ int main() {
     // declare timing variables
     auto molwt_time=0;
     auto seq_update_time=0;
-    
+
     // KMC loop
     while (time<simulation_time) {
 
@@ -158,84 +160,32 @@ int main() {
         double whichB = r4*(chainsB[B_monomer_type]+2*monomerB[B_monomer_type]); 
         // update chains
         auto start_seq_update = high_resolution_clock::now(); // measure molecular weight calculation time
-        explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_monomer_type,B_monomer_type,chainsA,chainsB,all_chains,loops);
+        explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_monomer_type,B_monomer_type,chainsA,chainsB,all_chains,loops,loop,Mi_A,Mi_B,monomermassA,monomermassB);
         auto stop_seq_update = high_resolution_clock::now();
         auto duration_seq_update = duration_cast<microseconds>(stop_seq_update-start_seq_update);
         seq_update_time += duration_seq_update.count();
         time += tau;
         
-        // END KMC CALCULATIONS. 
-
-        // RECORD SEQUENCE STARTS
-        // record fractions of length 2, 3, 4 ... eventually add through 8, and dispersity
-        // int F_krol [10] = {0}; // vector to track fractions to reproduce Krol and Gawdzik
-
-        // for (int i=0;i<all_chains.size();i++){
-        //     if (all_chains[i].v.size()<10){
-        //         F_krol[all_chains[i].v.size()-1]++;
-        //     }
-        //     else if (all_chains[i].v.size()>=10) {
-        //         F_krol[9]++;
-        //     }
-        // }
-        // for (int i=0;i<loops.size();i++){
-        //     if (loops[i].v.size()<10){
-        //         F_krol[loops[i].v.size()]++;
-        //     }
-        //     else if (loops[i].v.size()>=10){
-        //         F_krol[9]++;
-        //     }
-        // }
-        // F << std::left << std::setw(10) << time << "     ";
-        // // unfortunately the below hard codes in the length of F_krol "i<10"
-        // for (int i=0;i<10;i++) {
-        //     if (i!=0){
-        //         F << std::setw(6) << F_krol[i]/(Na*V) << "     ";
-        //         if (i==9) F << "\n";
-        //     }
-        //     else {
-        //         int total_monomer = 0; // calculate total amount of monomer
-        //         // add up total number of A molecules
-        //         for (int j=0;j<monomerA.size();j++) {
-        //             total_monomer+=monomerA[j];
-        //         }
-        //         for (int j=0;j<monomerB.size();j++) {
-        //             total_monomer+=monomerB[j];
-        //         }
-        //         F << std::setw(6) << (total_monomer)/(Na*V) << "     ";
-        //     }
-            
-        // }
-        //conc << std::left << std::setw(10) << time << "     " << std::setw(6) << monomerA[0]/(Na*V) << "     " << std::setw(6) << monomerA[1]/(Na*V) << "     "<< std::setw(6) << monomerB[0]/(Na*V) << "     " << std::setw(6) << (all_chains.size()+loops.size())/(Na*V) << "\n";
-        
-        // Record dispersity here at some point
-        auto start_molwt = high_resolution_clock::now(); // measure molecular weight calculation time
-
-        molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB);
+        /* END KMC CALCULATIONS. 
+           START RECORD SEQUENCE
+        */ 
+        // Record Mn, Mw, and dispersity
+        auto start_molwt = high_resolution_clock::now(); // time molecular weight calculation
+        molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,loop,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
         dispersity=Mw/Mn; // calculate polydispersity index PDI
         // the below overall conversion line could be improved
         over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2*monomerA0); // calculate overall conversion of A functional group
-        // int unreactedfunctionalgroups=0;
-        // for (int i=0; i<monomerA.size();i++) {
-        //     unreactedfunctionalgroups+=2*monomerA[i]+chainsA[i];
-        // }
-        // for (int i=0; i<monomerB.size();i++) {
-        //     unreactedfunctionalgroups+=2*monomerB[i]+chainsB[i];
-        // }
-        molwt << std::left << std::setw(10) << time << "     " << std::setw(10) << over_x << "     " << std::setw(6) << Mn << "     " << std::setw(6) << Mw << "     " << std::setw(6) << dispersity << "     " << "\n"; //std::setw(10) << total_rate << "     " << std::setw(6) << unreactedfunctionalgroups << "\n";
-        auto stop_molwt = high_resolution_clock::now(); // measure molecular weight calculation time
+
+        molwt << std::left << std::setw(10) << time << "     " << std::setw(10) << over_x << "     " << std::setw(6) << Mn << "     " << std::setw(6) << Mw << "     " << std::setw(6) << dispersity << "     " << "\n";
+        auto stop_molwt = high_resolution_clock::now(); // stop time molecular weight calculation 
         auto duration_molwt = duration_cast<microseconds>(stop_molwt-start_molwt);
         molwt_time += duration_molwt.count();
-
         }
 
-    //conc.close();
-    //F.close();
     molwt.close();
     // could easily print all sequences here too if desired
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop-start);
-    
     auto totalprogramtime = duration.count();
     // total number of events that can occur is 1 for each reaction 
     return 0;

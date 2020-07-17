@@ -11,19 +11,25 @@ struct chain
     std::vector<std::vector<int>> v;
     int frontend; // identity of species at start of vector
     int backend; // identity of species at end of vector
+    double chain_mass;
 };
 // Need to keep track of all the polymer chains that have been created
 typedef std::vector<chain> chain_pool;
 
-void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA, std::vector<int>& monomerB, int& A_monomer_type, int& B_monomer_type, std::vector<int>& chainsA, std::vector<int>& chainsB, chain_pool& all_chains, chain_pool& loops) {
+void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA, std::vector<int>& monomerB, int& A_monomer_type, int& B_monomer_type, std::vector<int>& chainsA, std::vector<int>& chainsB, chain_pool& all_chains, chain_pool& loops, bool& loop, double& Mi_A, double& Mi_B, std::vector<double>& monomermassA, std::vector<double>& monomermassB) {
     bool front = false;
     bool back = false;
     bool something_went_wrong = false;
+    Mi_A=0; // reset Mi_A
+    Mi_B=0; // reset Mi_B
     // case for which 1 A monomer reacts with 1 B monomer
     if (whichA<2*monomerA[A_monomer_type] && whichB<2*monomerB[B_monomer_type]) {
         chain newchain; // make  a new chain
         newchain.frontend = 0; // i.e. front end is A
         newchain.backend = 1; // backend is defined arbitrarily as species B on new polymer chain
+        Mi_A=monomermassA[A_monomer_type]; // record mass of reacted "A chain"
+        Mi_B=monomermassB[B_monomer_type]; // record mass of reacted "B chain"
+        newchain.chain_mass=Mi_A+Mi_B; // update total chain mass
         newchain.v.push_back({newchain.frontend,A_monomer_type});
         newchain.v.push_back({newchain.backend,B_monomer_type});
         all_chains.push_back(newchain);
@@ -36,8 +42,8 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
     else if (whichA<2*monomerA[A_monomer_type] && whichB>2*monomerB[B_monomer_type]) {
         // STEP 1: Select B chain
         int B_functional_group = (int) (whichB-2*monomerB[B_monomer_type]);
-        int selected_chain = 0;
-        int countB = 0;
+        int selected_chain = 0; // pick B chain index in all chains
+        int countB = 0; // count number of B functional groups matching B_monomer_type
 
         while (selected_chain<all_chains.size()){
             // select which B chain and which B end
@@ -57,6 +63,13 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
             }
             selected_chain++;
         }
+        // update Mi_A and Mi_B
+        // A monomer weight
+        Mi_A=monomermassA[A_monomer_type];
+        // Weight of the B chain 
+        Mi_B=all_chains[selected_chain].chain_mass;
+        // update total chain mass
+        all_chains[selected_chain].chain_mass+=Mi_A;
 
         // STEP 2: which end of the chain has B?
         // CASE 1: if the B is at the end of the chain
@@ -105,6 +118,13 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
             }
             selected_chain++;
         }
+        // update Mi_A and Mi_B
+        // B monomer weight
+        Mi_B=monomermassB[B_monomer_type];
+        // Weight of the A chain 
+        Mi_A=all_chains[selected_chain].chain_mass;
+        // update total chain mass
+        all_chains[selected_chain].chain_mass+=Mi_B;
 
         // STEP 2: which end of the chain has A?
         // CASE 1: if the A is at the end of the chain .. but what to do if both ends have A?
@@ -180,6 +200,17 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
             }
             selected_B_chain++;
         }
+        // update Mi_A and Mi_B
+        // A chain_weight
+        Mi_A=all_chains[selected_A_chain].chain_mass;
+        // Weight of the B chain 
+        Mi_B=all_chains[selected_B_chain].chain_mass;
+        // update total chain mass -- in this case, update both, because one of them will be deleted
+        if (selected_A_chain != selected_B_chain) { // if a loop is formed, do nothing
+            all_chains[selected_A_chain].chain_mass=Mi_A+Mi_B;
+            all_chains[selected_B_chain].chain_mass=Mi_A+Mi_B;
+        }
+
         // which chain is getting added to and which chain is getting deleted?
         bool add_to_chain_A = false;
         if (selected_A_chain<selected_B_chain) {
@@ -189,8 +220,11 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
         if (selected_A_chain==selected_B_chain){
             // delete from vector of chains
             // add to loops vector. This does not currently consider whether sterically it is possible for this to occur (i.e. loops consisting of 2 monomers are permitted)
+            
             loops.push_back(all_chains[selected_A_chain]);
             all_chains.erase(all_chains.begin()+selected_A_chain); // what the heck is an iterator, and what's the difference between it and a const_iterator
+            loop = true;
+            
         }
         // case 1: front of A chain to front of B chain
         else if (frontA && frontB) {

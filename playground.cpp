@@ -84,6 +84,8 @@ int main() {
     auto duration = duration_cast<microseconds>(stop-start);
     
     auto sixtytwo = duration.count();
+    int amistupid=RAND_MAX;
+    double tauy = log(1/0);
     return 0;
 
 }
