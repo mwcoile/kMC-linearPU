@@ -1,5 +1,5 @@
-./Output
-./OldVersions
+./Output/
+./OldVersions/
 playground.dSYM
 main_KMC_PU.dSYM
 foo3.code-workspace
