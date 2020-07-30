@@ -97,7 +97,7 @@ int main() {
     double dispersity;
     double Mn=0;
     double Mw=0; 
-    bool loop = false;
+    bool isloop = false;
     double Mi_A; double Mi_B;
     initialize_molecular_weight(Mn, Mw, monomerA, monomerB, monomermassA, monomermassB, sumNi, sumMiNi, sumMi2Ni);
     
@@ -114,7 +114,7 @@ int main() {
     auto molwt_time=0;
     auto seq_update_time=0;
 
-    // KMC loop
+    // KMC isloop
     while (time<simulation_time) {
 
         // calculate propensity functions
@@ -124,7 +124,7 @@ int main() {
         }
         // update total rate
         double total_rate=0;
-        // note: first entries in total rate are monomerA.size()*monomerB.size() looping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
+        // note: first entries in total rate are monomerA.size()*monomerB.size() islooping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
         int v=0;
         signed long long h[M];
         double Rv[M];
@@ -144,7 +144,7 @@ int main() {
         double r2 = 1.0*std::rand()/RAND_MAX;
         int mu=0;
         double sumRv=0; // Lin Wang eqn 1 multiplied by total rate
-        while (sumRv<r2*total_rate) { // this is probably better implemented in a do loop
+        while (sumRv<r2*total_rate) { // this is probably better implemented in a do isloop
             sumRv+=Rv[mu];
             if (sumRv<r2*total_rate) mu++;
         }
@@ -160,7 +160,7 @@ int main() {
         double whichB = r4*(chainsB[B_monomer_type]+2*monomerB[B_monomer_type]); 
         // update chains
         auto start_seq_update = high_resolution_clock::now(); // measure molecular weight calculation time
-        explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_monomer_type,B_monomer_type,chainsA,chainsB,all_chains,loops,loop,Mi_A,Mi_B,monomermassA,monomermassB);
+        explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_monomer_type,B_monomer_type,chainsA,chainsB,all_chains,loops,isloop,Mi_A,Mi_B,monomermassA,monomermassB);
         auto stop_seq_update = high_resolution_clock::now();
         auto duration_seq_update = duration_cast<microseconds>(stop_seq_update-start_seq_update);
         seq_update_time += duration_seq_update.count();
@@ -171,7 +171,7 @@ int main() {
         */ 
         // Record Mn, Mw, and dispersity
         auto start_molwt = high_resolution_clock::now(); // time molecular weight calculation
-        molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,loop,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
+        molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,isloop,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
         dispersity=Mw/Mn; // calculate polydispersity index PDI
         // the below overall conversion line could be improved
         over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2*monomerA0); // calculate overall conversion of A functional group

@@ -40,7 +40,7 @@ void molecular_weight(double& Mn, double& Mw, chain_pool& all_chains,chain_pool&
                 Mi+=monomermassA[0];
             }
             // if monomer is type BB
-            else if (loops[i].v[j]==1) {
+            else if (isloops[i].v[j]==1) {
                 Mi+=monomermassB[0];
             }
         }

@@ -16,7 +16,7 @@ struct chain
 // Need to keep track of all the polymer chains that have been created
 typedef std::vector<chain> chain_pool;
 
-void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA, std::vector<int>& monomerB, int& A_monomer_type, int& B_monomer_type, std::vector<int>& chainsA, std::vector<int>& chainsB, chain_pool& all_chains, chain_pool& loops, bool& loop, double& Mi_A, double& Mi_B, std::vector<double>& monomermassA, std::vector<double>& monomermassB) {
+void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA, std::vector<int>& monomerB, int& A_monomer_type, int& B_monomer_type, std::vector<int>& chainsA, std::vector<int>& chainsB, chain_pool& all_chains, chain_pool& loops, bool& isloop, bool& isnewchain, bool& ismonomerA,bool& ismonomerB, double& Mi_A, double& Mi_B, std::vector<double>& monomermassA, std::vector<double>& monomermassB) {
     bool front = false;
     bool back = false;
     bool something_went_wrong = false;
@@ -37,6 +37,7 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
         monomerB[B_monomer_type]--; // update the trackers
         chainsA[A_monomer_type]++; // update the trackers
         chainsB[B_monomer_type]++;  // update the trackers
+        isnewchain=true;
     }
     // case for which 1 A monomer reacts with 1 B chain
     else if (whichA<2*monomerA[A_monomer_type] && whichB>2*monomerB[B_monomer_type]) {
@@ -92,7 +93,7 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
             chainsA[A_monomer_type]++;
             monomerA[A_monomer_type]--;
         }
-        // could add a line to check that this is occurring properly
+        ismonomerA=true;
     }
     // case for which 1 B monomer reacts with 1 A chain
     else if (whichA>2*monomerA[A_monomer_type] && whichB<2*monomerB[B_monomer_type]) {
@@ -147,7 +148,7 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
             chainsA[A_monomer_type]--;
             monomerB[B_monomer_type]--;
         }
-        // could add a line to check that this is occuring properly
+        ismonomerB=true;
     }
     // case for which 1 A chain reacts with 1 B chain
     else if (whichA>2*monomerA[A_monomer_type] && whichB>2*monomerB[B_monomer_type]) {
@@ -206,7 +207,7 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
         // Weight of the B chain 
         Mi_B=all_chains[selected_B_chain].chain_mass;
         // update total chain mass -- in this case, update both, because one of them will be deleted
-        if (selected_A_chain != selected_B_chain) { // if a loop is formed, do nothing
+        if (selected_A_chain != selected_B_chain) { // if a isloop is formed, do nothing
             all_chains[selected_A_chain].chain_mass=Mi_A+Mi_B;
             all_chains[selected_B_chain].chain_mass=Mi_A+Mi_B;
         }
@@ -223,7 +224,7 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
             
             loops.push_back(all_chains[selected_A_chain]);
             all_chains.erase(all_chains.begin()+selected_A_chain); // what the heck is an iterator, and what's the difference between it and a const_iterator
-            loop = true;
+            isloop = true;
             
         }
         // case 1: front of A chain to front of B chain

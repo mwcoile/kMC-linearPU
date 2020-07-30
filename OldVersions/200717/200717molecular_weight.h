@@ -7,13 +7,13 @@
 #include<math.h>
 #include"chain_update.h" // I don't understand why I have to include this line to get chain_pool recognized, given that the main cpp file contains an include"chain update" statement before inclding this file... I thought include was a copy/paste directive, so I don't see why it doens't work here...
 
-void molecular_weight(double& Mn, double& Mw, chain_pool& all_chains,chain_pool& loops, std::vector<int>& monomerA, std::vector<int>& monomerB, std::vector<double>& monomermassA,std::vector<double>& monomermassB, bool& loop, double& sumNi, double& sumMiNi, double& sumMi2Ni, double& Mi_A, double& Mi_B){
-    if (loop == false) {
+void molecular_weight(double& Mn, double& Mw, chain_pool& all_chains,chain_pool& loops, std::vector<int>& monomerA, std::vector<int>& monomerB, std::vector<double>& monomermassA,std::vector<double>& monomermassB, bool& isloop, double& sumNi, double& sumMiNi, double& sumMi2Ni, double& Mi_A, double& Mi_B){
+    if (isloop == false) {
         sumNi--;
         // sumMiNi does not change
         sumMi2Ni+=(Mi_A+Mi_B)*(Mi_A+Mi_B)-Mi_A*Mi_A-Mi_B*Mi_B;
     }
-    loop = false;
+    isloop = false;
     Mn=sumMiNi/sumNi;
     Mw=sumMi2Ni/sumMiNi;
 }

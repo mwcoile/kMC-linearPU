@@ -46,8 +46,8 @@ int main() {
     int chainsA = 0; // number of chain ends which are an "A"
     int chainsB = 0; // number of chain ends which are a "B"
     
-    //.. could instead write a loop which goes through chainpool and interrogates 
-    // each chain for its ends. However, the above step saves that whole loop
+    //.. could instead write a isloop which goes through chainpool and interrogates 
+    // each chain for its ends. However, the above step saves that whole isloop
     // as long as properly handled. For bifunctional monomers, the first dyad in a chain
     // will always have frontend = 0 and backend = 1.
     std::ofstream conc;
@@ -68,7 +68,7 @@ int main() {
     chain_pool all_chains;  
     chain_pool loops;
 
-    // KMC loop
+    // KMC isloop
     while (time<simulation_time) {
 
         // calculate propensity functions
@@ -258,7 +258,7 @@ int main() {
             if (selected_A_chain<selected_B_chain) {
                 add_to_chain_A = true;
             }
-            // case 0: loop formation
+            // case 0: isloop formation
             if (selected_A_chain==selected_B_chain){
                 // delete from vector of chains
                 // add to loops vector. This does not currently consider whether sterically it is possible for this to occur (i.e. loops consisting of 2 monomers are permitted)

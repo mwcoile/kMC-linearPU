@@ -63,7 +63,7 @@ int main() {
     double time = 0; // seconds
     double simulation_time = 60*60*36*10; // [=] seconds (30 hours in seconds)
 
-    // KMC loop
+    // KMC isloop
     while (time<simulation_time) {
 
         // calculate propensity functions

@@ -105,7 +105,7 @@ int main() {
     std::srand(std::time(0));
     double time = 0; // seconds
 
-    // KMC loop
+    // KMC isloop
     while (time<simulation_time) {
 
         // calculate propensity functions
@@ -115,7 +115,7 @@ int main() {
         }
         // update total rate
         double total_rate=0;
-        // note: first entries in total rate are monomerA.size()*monomerB.size() looping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
+        // note: first entries in total rate are monomerA.size()*monomerB.size() islooping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
         int v=0;
         signed long long h[M];
         double Rv[M];
@@ -135,7 +135,7 @@ int main() {
         double r2 = 1.0*std::rand()/RAND_MAX;
         int mu=0;
         double sumRv=0; // Lin Wang eqn 1 multiplied by total rate
-        while (sumRv<r2*total_rate) { // this is probably better implemented in a do loop
+        while (sumRv<r2*total_rate) { // this is probably better implemented in a do isloop
             sumRv+=Rv[mu];
             if (sumRv<r2*total_rate) mu++;
         }

@@ -37,7 +37,8 @@ int main() {
     std::vector<double> monomermassA={1700,154.25}; // g/mol
     std::vector<double> monomermassB={250}; // g/mol
     const int M = monomermassA.size()*monomermassB.size(); // number of reaction channels considered
-    double total_monomer_concentration=0.70;
+    double total_monomer_concentration=0.70*2;
+    double total_monomer_concentration_at_t_0=total_monomer_concentration; // for replicating Beniah et al
     // 2. Kinetic parameters
     // The parameters below are for primary amine+cyclic carbonate in a DMAc solvent (N,N-dimethylacetamide)
     // Source: Tomita 2001. DOI 10.1002/1099-0518(20010101)39:1<162::AID-POLA180>3.0.CO;2-O
@@ -51,8 +52,8 @@ int main() {
     // 3. Simulation details
     double simulation_time = 60*60*(36+24); // [=] seconds 36 h + 24 h 
     int num_of_molecules_in_simulation=0; // number of monomers simulated
-    std::vector<int> monomerA{2185,7724}; // starting number of bifunctional monomers containing functional group A
-    std::vector<int> monomerB{10091}; // starting number of bifunctional monomer containing functional group B
+    std::vector<int> monomerA{47100,52900}; // starting number of bifunctional monomers containing functional group A
+    std::vector<int> monomerB{100000}; // starting number of bifunctional monomer containing functional group B
     // moleculeA = type 0, moleculeB = type 1
     for (int i=0; i<monomerA.size();i++){
         num_of_molecules_in_simulation+=monomerA[i];
@@ -84,7 +85,7 @@ int main() {
     char date[80];
     strftime (date,80,"%Y%m%d_%I%M%S%p_%Z",now); 
     std::string str(date);
-    std::string filename = "molecular_weight_Beniah_10ktest.txt";
+    std::string filename = "molecular_weight_Beniah_100k-NORB-30.txt";
     std::string path = "/Users/baboo/Documents/Research/Polymer_Recycling_Project/MiscellaneousResources/KMC_PU/Output/";
     std::string molwtfilename = path+date+filename;
     molwt.open(molwtfilename); // store time, Mn, Mw, Dispersity
@@ -97,9 +98,12 @@ int main() {
     double dispersity;
     double Mn=0;
     double Mw=0; 
-    bool loop = false;
+    bool isloop = false;
+    bool isnewchain=false;
+    bool ismonomerA=false;
+    bool ismonomerB=false;
     double Mi_A; double Mi_B;
-    initialize_molecular_weight(Mn, Mw, monomerA, monomerB, monomermassA, monomermassB, sumNi, sumMiNi, sumMi2Ni);
+    //initialize_molecular_weight(Mn, Mw, monomerA, monomerB, monomermassA, monomermassB, sumNi, sumMiNi, sumMi2Ni);
     
     // calculate all rate constants from kinetic parameters and temperature
     std::vector<double> kf(M);
@@ -114,9 +118,15 @@ int main() {
     auto molwt_time=0;
     auto seq_update_time=0;
 
-    // KMC loop
+    // KMC isloop
     while (time<simulation_time) {
-
+        // special code to simulate drying process
+        if (time > 36*60*60) {
+            // Assume drying results in linear decrease in volume of solvent from 4 mL to 0. Also assume that loss of monomer does not affect the volume
+            total_monomer_concentration=total_monomer_concentration_at_t_0+(2.55-total_monomer_concentration_at_t_0)/(24*60*60)*(time-36*60*60);
+            V=num_of_molecules_in_simulation/(Na*total_monomer_concentration);
+        }
+        
         // calculate propensity functions
         double c[M];
         for (int i=0;i<M;i++) {
@@ -124,7 +134,7 @@ int main() {
         }
         // update total rate
         double total_rate=0;
-        // note: first entries in total rate are monomerA.size()*monomerB.size() looping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
+        // note: first entries in total rate are monomerA.size()*monomerB.size() islooping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
         int v=0;
         signed long long h[M];
         double Rv[M];
@@ -138,13 +148,17 @@ int main() {
         }
         // choose timestep tau
         double r1 = 1.0*std::rand()/RAND_MAX; 
+        while (r1==0){
+            // this whole loop is to ensure that r1 is not 0 (on my mac, less than 1/2,000,000,000 chance per random number generation event)
+            r1 = 1.0*std::rand()/RAND_MAX;
+        }
         double tau = (1/total_rate)*log(1/r1); // calculate timestep tau
         
         // choose reaction to take place using Gillespie algorithm
         double r2 = 1.0*std::rand()/RAND_MAX;
         int mu=0;
         double sumRv=0; // Lin Wang eqn 1 multiplied by total rate
-        while (sumRv<r2*total_rate) { // this is probably better implemented in a do loop
+        while (sumRv<r2*total_rate) { // this is probably better implemented in a do isloop
             sumRv+=Rv[mu];
             if (sumRv<r2*total_rate) mu++;
         }
@@ -160,7 +174,7 @@ int main() {
         double whichB = r4*(chainsB[B_monomer_type]+2*monomerB[B_monomer_type]); 
         // update chains
         auto start_seq_update = high_resolution_clock::now(); // measure molecular weight calculation time
-        explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_monomer_type,B_monomer_type,chainsA,chainsB,all_chains,loops,loop,Mi_A,Mi_B,monomermassA,monomermassB);
+        explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_monomer_type,B_monomer_type,chainsA,chainsB,all_chains,loops,isloop,isnewchain,ismonomerA,ismonomerB,Mi_A,Mi_B,monomermassA,monomermassB);
         auto stop_seq_update = high_resolution_clock::now();
         auto duration_seq_update = duration_cast<microseconds>(stop_seq_update-start_seq_update);
         seq_update_time += duration_seq_update.count();
@@ -171,7 +185,7 @@ int main() {
         */ 
         // Record Mn, Mw, and dispersity
         auto start_molwt = high_resolution_clock::now(); // time molecular weight calculation
-        molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,loop,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
+        molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,isloop,isnewchain,ismonomerA,ismonomerB,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
         dispersity=Mw/Mn; // calculate polydispersity index PDI
         // the below overall conversion line could be improved
         over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2*monomerA0); // calculate overall conversion of A functional group

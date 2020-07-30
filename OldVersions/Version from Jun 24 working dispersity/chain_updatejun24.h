@@ -185,7 +185,7 @@ void explicit_sequence_record(int whichA, int whichB, int& moleculesA, int& mole
         if (selected_A_chain<selected_B_chain) {
             add_to_chain_A = true;
         }
-        // case 0: loop formation
+        // case 0: isloop formation
         if (selected_A_chain==selected_B_chain){
             // delete from vector of chains
             // add to loops vector. This does not currently consider whether sterically it is possible for this to occur (i.e. loops consisting of 2 monomers are permitted)
