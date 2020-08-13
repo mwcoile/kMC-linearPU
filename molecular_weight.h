@@ -8,7 +8,7 @@
 #include"chain_update.h" // I don't understand why I have to include this line to get chain_pool recognized, given that the main cpp file contains an include"chain update" statement before inclding this file... I thought include was a copy/paste directive, so I don't see why it doens't work here...
 
 void molecular_weight(double& Mn, double& Mw, chain_pool& all_chains, chain_pool& loops, std::vector<int>& monomerA, std::vector<int>& monomerB, std::vector<double>& monomermassA, std::vector<double>& monomermassB, bool& isloop, bool& isnewchain, bool& ismonomerA,bool& ismonomerB,double& sumNi, double& sumMiNi, double& sumMi2Ni, double& Mi_A, double& Mi_B){
-    if (isloop == false) {
+   if (isloop == false) {
         if (isnewchain == true) {
             sumNi++;
             sumMiNi+=Mi_A+Mi_B;
@@ -23,7 +23,7 @@ void molecular_weight(double& Mn, double& Mw, chain_pool& all_chains, chain_pool
             // sumNi does not change
             sumMiNi+=Mi_B; // add weight of additional monomer
             sumMi2Ni+=(Mi_A+Mi_B)*(Mi_A+Mi_B)-Mi_A*Mi_A; // newchainweight^2-oldchainweight^2
-        }
+        } 
         else {
             sumNi--;
             // sumMiNi does not change

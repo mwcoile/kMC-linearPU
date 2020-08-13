@@ -48,12 +48,13 @@ int main() {
     // After parameters for all possible combinations of A+B monomer types are inserted, other reactions follow
     std::vector<double> A_kf(M,A_tomita); // A_kf units: L/mol h.
     std::vector<double> Ea_kf(M,Ea_tomita); // Ea units: kJ/mol (kf = rate constant for forward reaction 1)
+    std::string filename = "Tirrell10kusingTomita_longtime_10-90.txt"; // description to be appended to filenames
 
     // 3. Simulation details
-    double simulation_time = 60*60*(36+24); // [=] seconds 36 h + 24 h 
+    double simulation_time = 60*60*(36+24+100); // [=] seconds 36 h + 24 h 
     int num_of_molecules_in_simulation=0; // number of monomers simulated
-    std::vector<int> monomerA{47100,52900}; // starting number of bifunctional monomers containing functional group A
-    std::vector<int> monomerB{100000}; // starting number of bifunctional monomer containing functional group B
+    std::vector<int> monomerA{1000,9000}; // starting number of bifunctional monomers containing functional group A
+    std::vector<int> monomerB{10000}; // starting number of bifunctional monomer containing functional group B
     // moleculeA = type 0, moleculeB = type 1
     for (int i=0; i<monomerA.size();i++){
         num_of_molecules_in_simulation+=monomerA[i];
@@ -62,6 +63,11 @@ int main() {
     for (int j=0; j<monomerB.size();j++){
         num_of_molecules_in_simulation+=monomerB[j];
     }
+
+    // for Tirrell calculation
+    int startingA0 = monomerA[0];
+    int startingA1 = monomerA[1];
+    // end Tirrell stuff
 
     // END USER SUPPLIED INPUTS // 
 
@@ -85,11 +91,20 @@ int main() {
     char date[80];
     strftime (date,80,"%Y%m%d_%I%M%S%p_%Z",now); 
     std::string str(date);
-    std::string filename = "molecular_weight_Beniah_100k-NORB-30.txt";
+    std::string mweight = "molecular_weight";
     std::string path = "/Users/baboo/Documents/Research/Polymer_Recycling_Project/MiscellaneousResources/KMC_PU/Output/";
-    std::string molwtfilename = path+date+filename;
+    std::string molwtfilename = path+date+mweight+filename;
     molwt.open(molwtfilename); // store time, Mn, Mw, Dispersity
     molwt << "time           Conversion     Mn         Mw         D\n";
+
+    // Reproduce Tirrell equation 67
+    std::ofstream Tirrell;
+    std::string Tirl = "Tirrell";
+    std::string Tirrellfilename = path+date+Tirl+filename;
+    Tirrell.open(Tirrellfilename); // store q1 and average sequence length
+    Tirrell << "time        q1         Nnbb       q2         Nncc\n";
+    double q1=0;
+    double q2=0;
 
     // declare variables needed to track molecular weight
     double sumMiNi=0;
@@ -121,12 +136,13 @@ int main() {
     // KMC isloop
     while (time<simulation_time) {
         // special code to simulate drying process
-        if (time > 36*60*60) {
+        /*if (time > 36*60*60) {
             // Assume drying results in linear decrease in volume of solvent from 4 mL to 0. Also assume that loss of monomer does not affect the volume
             total_monomer_concentration=total_monomer_concentration_at_t_0+(2.55-total_monomer_concentration_at_t_0)/(24*60*60)*(time-36*60*60);
             V=num_of_molecules_in_simulation/(Na*total_monomer_concentration);
         }
-        
+        */ 
+
         // calculate propensity functions
         double c[M];
         for (int i=0;i<M;i++) {
@@ -194,9 +210,90 @@ int main() {
         auto stop_molwt = high_resolution_clock::now(); // stop time molecular weight calculation 
         auto duration_molwt = duration_cast<microseconds>(stop_molwt-start_molwt);
         molwt_time += duration_molwt.count();
+
+        // do Tirrell stuff here
+        // what is q1 at any given time? Extent of reaction of 
+
+        // calculate sequence lengths inside all chains in all_chains. These are the sequence lengths defined by Tirrell rather than
+        // total chain lengths that correspond to number average degree of polymerization
+
+        int chain_number = 0;
+        int monomer_number=0;
+        int last_amine=-1;
+        int sequence_length=0;
+        int num_seqs_A0=0;
+        int num_seqs_A1=0;
+        double NnA0=0;
+        double NnA1=0;
+        int total_sequence_length_A0=0;
+        int total_sequence_length_A1=0;
+        // iterate through each chain in the chain pool
+        while (chain_number < all_chains.size()) {
+            // iterate through each element in the selected chain
+            while (monomer_number<all_chains[chain_number].v.size()) {
+                // if sequence_length is 0, initialize new sequence
+                if (sequence_length==0) {
+                    if (all_chains[chain_number].v[monomer_number][0]==0) {
+                        // what is the identity of the first amine in the sequence? i.e. for AA+BB+CC reaction where BB and CC do not react with each other, is the first element in a chain BB or CC?
+                        // either A0 or A1
+                        last_amine=all_chains[chain_number].v[monomer_number][1]; 
+                    }
+                    else {
+                        // if the first element is not an amine, then the 2nd element must be amine
+                        // i.e. if the first element is B, then the second one is A
+                        if ((monomer_number+1)<all_chains[chain_number].v.size()) {
+                            last_amine=all_chains[chain_number].v[monomer_number+1][1];
+                            monomer_number+=1;
+                        }
+                    }
+                }
+                if (all_chains[chain_number].v[monomer_number][0]!=0 || last_amine==-1) {
+                    // something is wrong
+                    printf("Something went wrong");
+                }
+                // if the next amine is the same as the last amine, increment the sequence length by 1
+                if (all_chains[chain_number].v[monomer_number][1]==last_amine){
+                    sequence_length+=1;
+                }
+                // if the next amine is not the same as the last amine, or if the end of the chain is reached, END THE SEQUENCE
+                // i.e. update the total sequence length and the num of sequences
+                if (all_chains[chain_number].v[monomer_number][1]!=last_amine || (monomer_number+2)>=all_chains[chain_number].v.size()) {
+                    if (last_amine==0) {
+                        total_sequence_length_A0+=sequence_length;
+                        num_seqs_A0+=1;
+                    }
+                    else if (last_amine==1) {
+                        total_sequence_length_A1+=sequence_length;
+                        num_seqs_A1+=1;
+                    }
+                    else {
+                        printf("something went wrong");
+                    }
+                    // start a new sequence
+                    sequence_length=0;
+                }
+                monomer_number+=2;
+            }
+            monomer_number=0;
+            chain_number+=1;
+        }
+        if (num_seqs_A0 != 0) {
+            NnA0=(1.0)*(total_sequence_length_A0+monomerA[0])/(num_seqs_A0+monomerA[0]);
+        }
+        if (num_seqs_A1 != 0) {
+            NnA1=((1.0)*total_sequence_length_A1+monomerA[1])/(num_seqs_A1+monomerA[1]);
+        }
+
+        // calculate q1 and q2
+        q1 = (2.0*startingA0-(2.0*monomerA[0]+chainsA[0]))/(2.0*startingA0);
+        q2 = (2.0*startingA1-(2.0*monomerA[1]+chainsA[1]))/(2.0*startingA1);
+        //    Tirrell << "time       q1         Nnbb       q2         Nncc\n";
+        Tirrell << std::left << std::setw(7) << time << "     " << std::setw(6) << q1 << "     " << std::setw(6) << NnA0 << "     " << std::setw(6) << q2 << "     " << std::setw(6) << NnA1 << "     \n";
         }
 
     molwt.close();
+    Tirrell.close();
+
     // could easily print all sequences here too if desired
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop-start);
