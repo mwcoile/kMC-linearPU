@@ -40,7 +40,7 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
         isnewchain=true;
     }
     // case for which 1 A monomer reacts with 1 B chain
-    else if (whichA<2*monomerA[A_monomer_type] && whichB>2*monomerB[B_monomer_type]) {
+    else if (whichA<2*monomerA[A_monomer_type] && whichB>=2*monomerB[B_monomer_type]) {
         // STEP 1: Select B chain
         int B_functional_group = (int) (whichB-2*monomerB[B_monomer_type]);
         int selected_chain = 0; // pick B chain index in all chains
@@ -96,7 +96,7 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
         ismonomerA=true;
     }
     // case for which 1 B monomer reacts with 1 A chain
-    else if (whichA>2*monomerA[A_monomer_type] && whichB<2*monomerB[B_monomer_type]) {
+    else if (whichA>=2*monomerA[A_monomer_type] && whichB<2*monomerB[B_monomer_type]) {
         // STEP 1: Select A chain
         int A_functional_group = (int) (whichA-2*monomerA[A_monomer_type]);
         int selected_chain = 0;
@@ -151,7 +151,10 @@ void explicit_sequence_record(int whichA, int whichB, std::vector<int>& monomerA
         ismonomerB=true;
     }
     // case for which 1 A chain reacts with 1 B chain
-    else if (whichA>2*monomerA[A_monomer_type] && whichB>2*monomerB[B_monomer_type]) {
+    else {
+        if (whichA<2*monomerA[A_monomer_type] || whichB<2*monomerB[B_monomer_type]) {
+            something_went_wrong=true;
+        }
         // STEP 1: select A chain
         int A_functional_group = (int) (whichA-2*monomerA[A_monomer_type]);
         int selected_A_chain = 0;

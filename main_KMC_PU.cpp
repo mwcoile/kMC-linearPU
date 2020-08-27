@@ -48,7 +48,7 @@ int main() {
     // After parameters for all possible combinations of A+B monomer types are inserted, other reactions follow
     std::vector<double> A_kf(M,A_tomita); // A_kf units: L/mol h.
     std::vector<double> Ea_kf(M,Ea_tomita); // Ea units: kJ/mol (kf = rate constant for forward reaction 1)
-    std::string filename = "Tirrell10kusingTomita_longtime_10-90.txt"; // description to be appended to filenames
+    std::string filename = "DevelopingMasterBranch_tirrellparameters.txt"; // description to be appended to filenames
 
     // 3. Simulation details
     double simulation_time = 60*60*(36+24+100); // [=] seconds 36 h + 24 h 
@@ -185,8 +185,16 @@ int main() {
         
         // pick which A, B functional group
         double r3 = 1.0*std::rand()/RAND_MAX;
+        while (r3==1) {
+            // this whole loop is to ensure that r3 excludes 1, want whichA on range [0, # of functional groups) (on my mac, less than 1/2,000,000,000 chance per random number generation event)
+            r3 = 1.0*std::rand()/RAND_MAX;
+        }
         double whichA = r3*(chainsA[A_monomer_type]+2*monomerA[A_monomer_type]);
         double r4 = 1.0*std::rand()/RAND_MAX;
+        while (r4==1){
+            // this whole loop is to ensure that whichB excludes the upper bound, want number on range [0, # of functional groups) (on my mac, less than 1/2,000,000,000 chance per random number generation event)
+            r4 = 1.0*std::rand()/RAND_MAX;
+        }
         double whichB = r4*(chainsB[B_monomer_type]+2*monomerB[B_monomer_type]); 
         // update chains
         auto start_seq_update = high_resolution_clock::now(); // measure molecular weight calculation time
