@@ -7,6 +7,7 @@
 #include<math.h>
 #include<array>
 #include<limits>
+#include<numeric>
 #include"chain_update.h"
 #include"molecular_weight.h"
 
@@ -35,10 +36,17 @@ int main() {
     // 1. Reaction conditions & monomers used
     double T = 273+80; // temperature (K)
     std::vector<double> monomermassA={1700,154.25}; // g/mol
+    std::vector<double> concentrationsA={0.7*0.1,0.7*0.9}; // M
     std::vector<double> monomermassB={250}; // g/mol
+    std::vector<double> concentrationsB={0.7}; // M
+    // should be no need to change this line
     const int M = monomermassA.size()*monomermassB.size(); // number of reaction channels considered
-    double total_monomer_concentration=0.70*2;
-    double total_monomer_concentration_at_t_0=total_monomer_concentration; // for replicating Beniah et al
+    
+    // for volume calculation
+    const double total_A_concentration = std::accumulate(concentrationsA.begin(), concentrationsA.end(), decltype(concentrationsA)::value_type(0));
+    const double total_B_concentration = std::accumulate(concentrationsB.begin(), concentrationsB.end(), decltype(concentrationsB)::value_type(0));
+    double total_monomer_concentration=total_A_concentration+total_B_concentration;
+
     // 2. Kinetic parameters
     // The parameters below are for primary amine+cyclic carbonate in a DMAc solvent (N,N-dimethylacetamide)
     // Source: Tomita 2001. DOI 10.1002/1099-0518(20010101)39:1<162::AID-POLA180>3.0.CO;2-O
@@ -52,17 +60,22 @@ int main() {
 
     // 3. Simulation details
     double simulation_time = 60*60*(36+24+100); // [=] seconds 36 h + 24 h 
-    int num_of_molecules_in_simulation=0; // number of monomers simulated
-    std::vector<int> monomerA{1000,9000}; // starting number of bifunctional monomers containing functional group A
-    std::vector<int> monomerB{10000}; // starting number of bifunctional monomer containing functional group B
+    int num_of_molecules_in_simulation=20000; // number of monomers simulated
+    std::vector<int> monomerA; // starting number of bifunctional monomers containing functional group A
+    std::vector<int> monomerB; // starting number of bifunctional monomer containing functional group B
     // moleculeA = type 0, moleculeB = type 1
-    for (int i=0; i<monomerA.size();i++){
+    for (int i=0; i<concentrationsA.size();i++){
+        monomerA.push_back(std::round(1.0*num_of_molecules_in_simulation*concentrationsA[i]/total_monomer_concentration));
+    }
+    for (int i=0; i<concentrationsB.size();i++){
+        monomerB.push_back(std::round(1.0*num_of_molecules_in_simulation*concentrationsB[i]/total_monomer_concentration));
+    }
+    /*for (int i=0; i<monomerA.size();i++){
         num_of_molecules_in_simulation+=monomerA[i];
     }
-    const double monomerA0 = num_of_molecules_in_simulation; // store this value for overall conversion calculation
     for (int j=0; j<monomerB.size();j++){
         num_of_molecules_in_simulation+=monomerB[j];
-    }
+    }*/
 
     // for Tirrell calculation
     int startingA0 = monomerA[0];
@@ -133,15 +146,8 @@ int main() {
     auto molwt_time=0;
     auto seq_update_time=0;
 
-    // KMC isloop
+    // KMC loop
     while (time<simulation_time) {
-        // special code to simulate drying process
-        /*if (time > 36*60*60) {
-            // Assume drying results in linear decrease in volume of solvent from 4 mL to 0. Also assume that loss of monomer does not affect the volume
-            total_monomer_concentration=total_monomer_concentration_at_t_0+(2.55-total_monomer_concentration_at_t_0)/(24*60*60)*(time-36*60*60);
-            V=num_of_molecules_in_simulation/(Na*total_monomer_concentration);
-        }
-        */ 
 
         // calculate propensity functions
         double c[M];
@@ -212,7 +218,7 @@ int main() {
         molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,isloop,isnewchain,ismonomerA,ismonomerB,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
         dispersity=Mw/Mn; // calculate polydispersity index PDI
         // the below overall conversion line could be improved
-        over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2*monomerA0); // calculate overall conversion of A functional group
+        over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2*total_A_concentration); // calculate overall conversion of A functional group
 
         molwt << std::left << std::setw(10) << time << "     " << std::setw(10) << over_x << "     " << std::setw(6) << Mn << "     " << std::setw(6) << Mw << "     " << std::setw(6) << dispersity << "     " << "\n";
         auto stop_molwt = high_resolution_clock::now(); // stop time molecular weight calculation 
