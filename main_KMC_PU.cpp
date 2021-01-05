@@ -56,11 +56,11 @@ int main() {
     // After parameters for all possible combinations of A+B monomer types are inserted, other reactions follow
     std::vector<double> A_kf(M,A_tomita); // A_kf units: L/mol h.
     std::vector<double> Ea_kf(M,Ea_tomita); // Ea units: kJ/mol (kf = rate constant for forward reaction 1)
-    std::string filename = "DevelopingMasterBranch_tirrellparameters.txt"; // description to be appended to filenames
+    std::string filename = "DevelopingMasterBranch_tirrellparameters_200k.txt"; // description to be appended to filenames
 
     // 3. Simulation details
     double simulation_time = 60*60*(36+24+100); // [=] seconds 36 h + 24 h 
-    int num_of_molecules_in_simulation=20000; // number of monomers simulated
+    int num_of_molecules_in_simulation=200000; // number of monomers simulated
     std::vector<int> monomerA; // starting number of bifunctional monomers containing functional group A
     std::vector<int> monomerB; // starting number of bifunctional monomer containing functional group B
     // moleculeA = type 0, moleculeB = type 1
@@ -70,12 +70,6 @@ int main() {
     for (int i=0; i<concentrationsB.size();i++){
         monomerB.push_back(std::round(1.0*num_of_molecules_in_simulation*concentrationsB[i]/total_monomer_concentration));
     }
-    /*for (int i=0; i<monomerA.size();i++){
-        num_of_molecules_in_simulation+=monomerA[i];
-    }
-    for (int j=0; j<monomerB.size();j++){
-        num_of_molecules_in_simulation+=monomerB[j];
-    }*/
 
     // for Tirrell calculation
     int startingA0 = monomerA[0];
@@ -105,7 +99,7 @@ int main() {
     strftime (date,80,"%Y%m%d_%I%M%S%p_%Z",now); 
     std::string str(date);
     std::string mweight = "molecular_weight";
-    std::string path = "/Users/baboo/Documents/Research/Polymer_Recycling_Project/MiscellaneousResources/KMC_PU/Output/";
+    std::string path = "/Users/mimivirus/Documents/Research/Polymer_Recycling_Project/MiscellaneousResources/KMC_PU/Output/";
     std::string molwtfilename = path+date+mweight+filename;
     molwt.open(molwtfilename); // store time, Mn, Mw, Dispersity
     molwt << "time           Conversion     Mn         Mw         D\n";
