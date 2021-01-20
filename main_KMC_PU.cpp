@@ -15,6 +15,7 @@
 
 using namespace std::chrono;
 
+// consider naming this function "channel selection"
 void specificmonomertype(int &A_monomer_type, int &B_monomer_type, std::vector<int> monomerA,std::vector<int> monomerB, int mu) {
     int count=0;
     for (A_monomer_type=0;A_monomer_type<monomerA.size();A_monomer_type++) {
@@ -50,7 +51,7 @@ int main() {
     // 2. Kinetic parameters
     // The parameters below are for primary amine+cyclic carbonate in a DMAc solvent (N,N-dimethylacetamide)
     // Source: Tomita 2001. DOI 10.1002/1099-0518(20010101)39:1<162::AID-POLA180>3.0.CO;2-O
-    double A_tomita = 371.5214/(60*60); // L/mol s; 
+    double A_tomita = 371.5214/(60*60); // L/mol s. Note that these are moles of *functional groups* rather than moles of monomers 
     double Ea_tomita = 24.6; // kJ/mol. 
     // The below vectors of kinetic parameters should be in the order A1+B1, A1+B2, A1+B3... A1+BN, A2+B1,A2+B2, A2+B3... etc.
     // After parameters for all possible combinations of A+B monomer types are inserted, other reactions follow
@@ -165,7 +166,7 @@ int main() {
         // choose timestep tau
         double r1 = 1.0*std::rand()/RAND_MAX; 
         while (r1==0){
-            // this whole loop is to ensure that r1 is not 0 (on my mac, less than 1/2,000,000,000 chance per random number generation event)
+            // this loop is to ensure that r1 is not 0 (on my mac, less than 1/2,000,000,000 chance per random number generation event)
             r1 = 1.0*std::rand()/RAND_MAX;
         }
         double tau = (1/total_rate)*log(1/r1); // calculate timestep tau
@@ -219,7 +220,7 @@ int main() {
         auto duration_molwt = duration_cast<microseconds>(stop_molwt-start_molwt);
         molwt_time += duration_molwt.count();
 
-        // do Tirrell stuff here
+        // Tirrell calculations
         // what is q1 at any given time? Extent of reaction of 
 
         // calculate sequence lengths inside all chains in all_chains. These are the sequence lengths defined by Tirrell rather than
@@ -298,6 +299,7 @@ int main() {
         //    Tirrell << "time       q1         Nnbb       q2         Nncc\n";
         Tirrell << std::left << std::setw(7) << time << "     " << std::setw(6) << q1 << "     " << std::setw(6) << NnA0 << "     " << std::setw(6) << q2 << "     " << std::setw(6) << NnA1 << "     \n";
         }
+    // End Tirrell calculations
 
     molwt.close();
     Tirrell.close();
