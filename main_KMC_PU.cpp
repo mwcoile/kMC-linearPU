@@ -13,10 +13,8 @@
 
 // author: Matthew
 
-using namespace std::chrono;
-
-// consider naming this function "channel selection"
-void specificmonomertype(int &A_monomer_type, int &B_monomer_type, std::vector<int> monomerA,std::vector<int> monomerB, int mu) {
+// Select the reaction channel to execute
+void reactionchannelselector(int &A_monomer_type, int &B_monomer_type, std::vector<int> monomerA,std::vector<int> monomerB, int mu) {
     int count=0;
     for (A_monomer_type=0;A_monomer_type<monomerA.size();A_monomer_type++) {
         for (B_monomer_type=0;B_monomer_type<monomerB.size();B_monomer_type++) {
@@ -30,7 +28,6 @@ void specificmonomertype(int &A_monomer_type, int &B_monomer_type, std::vector<i
 
 // This code is designed to generate polyurethane sequences
 int main() {
-    auto start = high_resolution_clock::now(); // time the entire program
 
     // USER INPUTS //
     
@@ -61,7 +58,7 @@ int main() {
 
     // 3. Simulation details
     double simulation_time = 60*60*(36+24+100); // [=] seconds 36 h + 24 h 
-    int num_of_molecules_in_simulation=200000; // number of monomers simulated
+    int num_of_molecules_in_simulation=2000; // number of monomers simulated
     std::vector<int> monomerA; // starting number of bifunctional monomers containing functional group A
     std::vector<int> monomerB; // starting number of bifunctional monomer containing functional group B
     // moleculeA = type 0, moleculeB = type 1
@@ -137,10 +134,6 @@ int main() {
     std::srand(std::time(0));
     double time = 0; // seconds
 
-    // declare timing variables
-    auto molwt_time=0;
-    auto seq_update_time=0;
-
     // KMC loop
     while (time<simulation_time) {
 
@@ -182,7 +175,7 @@ int main() {
         // Translation from reaction channel mu to 
         // specific AA monomer type and BB monomer type 
         int A_monomer_type=0; int B_monomer_type=0; int count=0;
-        specificmonomertype(A_monomer_type, B_monomer_type, monomerA, monomerB, mu);
+        reactionchannelselector(A_monomer_type, B_monomer_type, monomerA, monomerB, mu);
         
         // pick which A, B functional group
         double r3 = 1.0*std::rand()/RAND_MAX;
@@ -198,27 +191,19 @@ int main() {
         }
         double whichB = r4*(chainsB[B_monomer_type]+2*monomerB[B_monomer_type]); 
         // update chains
-        auto start_seq_update = high_resolution_clock::now(); // measure molecular weight calculation time
         explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_monomer_type,B_monomer_type,chainsA,chainsB,all_chains,loops,isloop,isnewchain,ismonomerA,ismonomerB,Mi_A,Mi_B,monomermassA,monomermassB);
-        auto stop_seq_update = high_resolution_clock::now();
-        auto duration_seq_update = duration_cast<microseconds>(stop_seq_update-start_seq_update);
-        seq_update_time += duration_seq_update.count();
         time += tau;
         
         /* END KMC CALCULATIONS. 
            START RECORD SEQUENCE
         */ 
         // Record Mn, Mw, and dispersity
-        auto start_molwt = high_resolution_clock::now(); // time molecular weight calculation
         molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,isloop,isnewchain,ismonomerA,ismonomerB,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
         dispersity=Mw/Mn; // calculate polydispersity index PDI
         // the below overall conversion line could be improved
         over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2*total_A_concentration); // calculate overall conversion of A functional group
 
         molwt << std::left << std::setw(10) << time << "     " << std::setw(10) << over_x << "     " << std::setw(6) << Mn << "     " << std::setw(6) << Mw << "     " << std::setw(6) << dispersity << "     " << "\n";
-        auto stop_molwt = high_resolution_clock::now(); // stop time molecular weight calculation 
-        auto duration_molwt = duration_cast<microseconds>(stop_molwt-start_molwt);
-        molwt_time += duration_molwt.count();
 
         // Tirrell calculations
         // what is q1 at any given time? Extent of reaction of 
@@ -304,10 +289,8 @@ int main() {
     molwt.close();
     Tirrell.close();
 
-    // could easily print all sequences here too if desired
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop-start);
-    auto totalprogramtime = duration.count();
+    // can easily print all sequences here too if desired
+
     // total number of events that can occur is 1 for each reaction 
     return 0;
 }

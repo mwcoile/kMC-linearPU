@@ -11,7 +11,9 @@
                 "-g",
                 "${file}",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}"
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "${fileDirname}/molecular_weight.cpp",
+                "${fileDirname}/chain_update.cpp"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
