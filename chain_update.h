@@ -6,6 +6,8 @@
 #include<string>
 #include<vector>
 #include<math.h>
+#include<algorithm>
+
 struct chain
 {
     std::vector<std::vector<int>> v;

@@ -1,5 +1,4 @@
 #include<iomanip>
-#include<stdlib.h>
 #include<iostream>
 #include<fstream>
 #include<string>
@@ -8,10 +7,19 @@
 #include<array>
 #include<limits>
 #include<numeric>
+#include<algorithm>
 #include"chain_update.h"
 #include"molecular_weight.h"
 
+#if __cplusplus < 201103L
+#error This file requires compiler and library support for the \
+ISO C++ 2011 standard. This support is currently experimental, and must be \
+enabled with the -std=c++11 or -std=gnu++11 compiler options.
+#endif
+
 // author: Matthew
+
+using namespace std::chrono;
 
 // Select the reaction channel to execute
 void reactionchannelselector(int &A_monomer_type, int &B_monomer_type, std::vector<int> monomerA,std::vector<int> monomerB, int mu) {
@@ -54,7 +62,7 @@ int main() {
     // After parameters for all possible combinations of A+B monomer types are inserted, other reactions follow
     std::vector<double> A_kf(M,A_tomita); // A_kf units: L/mol h.
     std::vector<double> Ea_kf(M,Ea_tomita); // Ea units: kJ/mol (kf = rate constant for forward reaction 1)
-    std::string filename = "DevelopingMasterBranch_tirrellparameters_200k.txt"; // description to be appended to filenames
+    std::string filename = "MasterBranch_tirrellstuff.txt"; // description to be appended to filenames
 
     // 3. Simulation details
     double simulation_time = 60*60*(36+24+100); // [=] seconds 36 h + 24 h 
@@ -135,7 +143,8 @@ int main() {
     double time = 0; // seconds
 
     // KMC loop
-    while (time<simulation_time) {
+    //while (time<simulation_time)
+    while (over_x<0.95) {
 
         // calculate propensity functions
         double c[M];
@@ -201,7 +210,7 @@ int main() {
         molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,isloop,isnewchain,ismonomerA,ismonomerB,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
         dispersity=Mw/Mn; // calculate polydispersity index PDI
         // the below overall conversion line could be improved
-        over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2*total_A_concentration); // calculate overall conversion of A functional group
+        over_x=1-(chainsA[0]+2*monomerA[0]+chainsA[1]+2*monomerA[1])/(2.0*(startingA0+startingA1)); // calculate overall conversion of A functional group
 
         molwt << std::left << std::setw(10) << time << "     " << std::setw(10) << over_x << "     " << std::setw(6) << Mn << "     " << std::setw(6) << Mw << "     " << std::setw(6) << dispersity << "     " << "\n";
 
