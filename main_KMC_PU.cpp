@@ -41,9 +41,10 @@ int main() {
     
     // 1. Reaction conditions & monomers used
     double T = 273+80; // temperature (K)
-    std::vector<double> monomermassA={1,1}; // g/mol
+    // comment or make clear that this vector is as long as the number of alcohols in the simulation
+    std::vector<double> monomermassA={100,1000}; // g/mol
     std::vector<double> concentrationsA={0.7*0.1,0.7*0.9}; // M
-    std::vector<double> monomermassB={1}; // g/mol
+    std::vector<double> monomermassB={250}; // g/mol
     std::vector<double> concentrationsB={0.7}; // M
     // should be no need to change this line
     const int M = monomermassA.size()*monomermassB.size(); // number of reaction channels considered
