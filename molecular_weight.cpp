@@ -1,6 +1,9 @@
 #include"molecular_weight.h"
 #include"chain_update.h"
 
+// This function updates the number average and weight average molecular weight after each kMC step.
+// Monomers are assumed to not affect the molecular weight, but dimers, trimers, and all larger oligomers
+// are included in the calculation
 void molecular_weight(double& Mn, double& Mw, chain_pool& all_chains, chain_pool& loops, std::vector<int>& monomerA, std::vector<int>& monomerB, std::vector<double>& monomermassA, std::vector<double>& monomermassB, bool& isloop, bool& isnewchain, bool& ismonomerA,bool& ismonomerB,double& sumNi, double& sumMiNi, double& sumMi2Ni, double& Mi_A, double& Mi_B){
    // if a chain forms a loop, there is no change in the molecular weight distribution
    if (isloop == false) {
