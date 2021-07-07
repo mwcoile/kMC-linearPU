@@ -1,6 +1,7 @@
 #pragma once
 #include<iomanip>
 #include<stdlib.h>
+#include<stdexcept>
 #include<iostream>
 #include<fstream>
 #include<string>
