@@ -102,7 +102,7 @@ int main() {
     for (int i=1;i<concentrationsB_input.size();i++){
         concentrationsB.push_back(std::stod(concentrationsB_input[i]));
     }
-    // The below vectors of kinetic parameters should be in the order A1+B1, A1+B2, A1+B3... A1+BN, A2+B1,A2+B2, A2+B3... etc.
+    // The below vectors of kinetic parameters should be in the order A1+B1, A1+B2, A1+B3... A1+Bn, A2+B1,A2+B2, A2+B3... etc.
     // Read in activation energies Ea (kJ/mol)
     std::vector<std::string> Ea_kf_input = getNextLineAndSplitIntoTokens(file);
     std::vector<double> Ea_kf;
@@ -129,9 +129,11 @@ int main() {
     const double total_B_concentration = std::accumulate(concentrationsB.begin(), concentrationsB.end(), decltype(concentrationsB)::value_type(0));
     double total_monomer_concentration=total_A_concentration+total_B_concentration;
 
+    // NOTE: moleculeA = type 0, moleculeB = type 1 in the vectors storing sequence
     std::vector<int> monomerA; // Track number of bifunctional monomer(s) containing functional group A
     std::vector<int> monomerB; // Track number of bifunctional monomer(s) containing functional group B
-    // moleculeA = type 0, moleculeB = type 1
+    
+    // initialize the numbers of A and B monomers present based on concentrations and simulation size
     for (int i=0; i<concentrationsA.size();i++){
         monomerA.push_back(std::round(1.0*num_of_molecules_in_simulation*concentrationsA[i]/total_monomer_concentration));
     }
@@ -140,8 +142,8 @@ int main() {
     }
 
     // for calculation of overall conversion of isocyanate
-    const double total_initial_B_functional_groups = 2.0*(std::accumulate(monomerB.begin(), monomerB.end(), decltype(monomerB)::value_type(0)));
-    double B_groups_remaining=total_initial_B_functional_groups;
+    const double total_initial_B_functional_groups = 2.0*(std::accumulate(monomerB.begin(), monomerB.end(), decltype(monomerB)::value_type(0))); // calculate the initial total number of B functional groups
+    double B_groups_remaining=total_initial_B_functional_groups; // calculate remaining unreacted B functional groups
 
     // declaring variables
     const double Na = 6.02E23; // avogadro's number: items per mole
@@ -182,12 +184,11 @@ int main() {
     bool ismonomerB=false; // Track whether a given reaction event caused a B monomer (diisocyanate) to be consumed
     double Mi_A; double Mi_B; // When two chains combine, Mi_A is the molecular weight of the chain containing the A-type functional group, while Mi_B is the molecular weight of the chain containing the B functional group
         
-    // calculate all rate constants from kinetic parameters and temperature
+    // calculate all rate constants from input kinetic parameters and temperature assuming Arrhenius relationship
     std::vector<double> kf(M);
     for (int i=0;i<M;i++) {
         kf[i]=A_kf[i]*exp(-Ea_kf[i]/(R*T)); // adding a to b
     }
-
     std::srand(std::time(0)); // seed the random number generator using the current time
     double time = 0; // Elapsed reaction time (seconds)
     // KMC loop
@@ -200,15 +201,13 @@ int main() {
         }
         // update total rate
         double total_rate=0;
-        // note: first entries in total rate are monomerA.size()*monomerB.size() islooping numbering reactions as R1 = A1B1, R2 = A2B1, R3 = A3B1... Rn=A2B1,Rn+1=A2B2,Rn+2=A2B3...
+        // note: Entries in R[v] to compute total rate are calculated in the order A1+B1, A1+B2, A1+B3... A1+Bn, A2+B1,A2+B2, A2+B3... etc.
         int v=0;
-        signed long long h[M];
         double Rv[M];
         for (int j=0;j<monomerA.size();j++) {
             for (int k=0;k<monomerB.size();k++) {
-                //h[v]=(2*monomerA[j]+chainsA[j])*(2*monomerB[k]+chainsB[k]); // hv is the product of the numbers of molecular reactants involved in the vth reaction channel present at time t
-                Rv[v]=c[v]*(2*monomerA[j]+chainsA[j])*(2*monomerB[k]+chainsB[k]); // molecules/s 2*molecules because each monomer is bifunctional
-                total_rate+=Rv[v]; // molecules/s 2*molecules because each monomer is bifunctional
+                Rv[v]=c[v]*(2*monomerA[j]+chainsA[j])*(2*monomerB[k]+chainsB[k]); // [=] molecules/s. 2*monomers because each monomer is bifunctional
+                total_rate+=Rv[v]; // molecules/s
                 v+=1;
             }
         }
@@ -248,19 +247,21 @@ int main() {
         // update chains
         explicit_sequence_record(whichA,whichB,monomerA,monomerB,A_type,B_type,chainsA,chainsB,all_chains,loops,isloop,isnewchain,ismonomerA,ismonomerB,Mi_A,Mi_B,monomermassA,monomermassB);
         time += tau;
-        
         // END KMC CALCULATIONS. 
+
         // Update Mn, Mw, and dispersity
         molecular_weight(Mn, Mw, all_chains, loops, monomerA, monomerB, monomermassA, monomermassB,isloop,isnewchain,ismonomerA,ismonomerB,sumNi,sumMiNi,sumMi2Ni,Mi_A,Mi_B);
         dispersity=Mw/Mn; // calculate polydispersity index PDI
         B_groups_remaining = 2.0*(std::accumulate(monomerB.begin(), monomerB.end(), decltype(monomerB)::value_type(0))); // Count unreacted functional groups on monomer
         B_groups_remaining += std::accumulate(chainsB.begin(), chainsB.end(), decltype(chainsB)::value_type(0)); // Count unreacted functional groups on chain ends
-        over_x=1-(B_groups_remaining/total_initial_B_functional_groups); // calculate overall conversion of A functional group
-
+        // calculate overall conversion of B functional group
+        over_x=1-(B_groups_remaining/total_initial_B_functional_groups); 
+        // Output molecular weight at timestep to file
         molwt << std::left << std::setw(10) << time << "     " << std::setw(10) << over_x << "     " << std::setw(6) << Mn << "     " << std::setw(6) << Mw << "     " << std::setw(6) << dispersity << "     " << "\n";
         }
 
     molwt.close();
+
     // can easily print all sequences here too if desired
     return 0;
 }
